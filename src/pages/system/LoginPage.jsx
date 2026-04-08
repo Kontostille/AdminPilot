@@ -1,15 +1,26 @@
-import { SignIn } from '@clerk/clerk-react';
+import { SignIn, useUser } from '@clerk/clerk-react';
 import { SEOHead } from '../../components/shared/index.jsx';
+import { useEffect } from 'react';
+import { navigate } from '../../utils/router.jsx';
 
 export default function LoginPage() {
+  const { isSignedIn, isLoaded } = useUser();
+
+  // Wenn schon eingeloggt → direkt zum Dashboard
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      navigate('/app');
+    }
+  }, [isLoaded, isSignedIn]);
+
   return (
     <>
       <SEOHead title="Anmelden" noindex />
       <div style={{ display: 'flex', justifyContent: 'center' }}>
         <SignIn
           routing="hash"
-          afterSignInUrl="/app"
-          afterSignUpUrl="/app"
+          forceRedirectUrl="/app"
+          signUpForceRedirectUrl="/app"
           appearance={{
             elements: {
               rootBox: { width: '100%' },

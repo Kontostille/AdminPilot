@@ -20,9 +20,10 @@ function HeroSection() {
           <p style={{ fontSize: 'var(--text-lg)', color: 'var(--ap-mint)', marginBottom: 'var(--space-8)', lineHeight: 1.6, maxWidth: 520 }}>
             Laden Sie Ihre Dokumente hoch – unsere KI prüft Ihren möglichen Anspruch und stellt den Antrag automatisch für Sie.
           </p>
-          <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+          <div className="hero-buttons" style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
             <Button variant="primary" size="large" to="/senioren">Ich bin Rentner/in</Button>
             <Button variant="secondary" size="large" to="/familien" style={{ color: '#FFF', borderColor: 'rgba(255,255,255,0.4)' }}>Ich habe eine Familie</Button>
+            <style>{`@media (max-width: 480px) { .hero-buttons { flex-direction: column; } .hero-buttons a { width: 100%; text-align: center; } }`}</style>
           </div>
           <p style={{ marginTop: 'var(--space-4)', fontSize: 'var(--text-sm)', color: 'var(--ap-sage)' }}>
             <Link to="/leistungscheck" style={{ color: 'var(--ap-mint)', textDecoration: 'underline' }}>Oder direkt zum kostenlosen Leistungscheck →</Link>

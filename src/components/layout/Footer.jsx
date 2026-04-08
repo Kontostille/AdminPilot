@@ -44,11 +44,11 @@ export default function Footer() {
               Ihr Begleiter durch die Bürokratie.
               <br />Behördenanträge einfach & automatisch.
             </p>
-            <a href="mailto:kontakt@adminpilot.de" style={{
+            <a href="mailto:info@adminpilot.de" style={{
               fontSize: 'var(--text-sm)', color: 'var(--ap-sage)',
               display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
             }}>
-              ✉ kontakt@adminpilot.de
+              ✉ info@adminpilot.de
             </a>
           </div>
 

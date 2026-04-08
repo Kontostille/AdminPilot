@@ -6,18 +6,94 @@ import { supabase } from '../../utils/supabase.js';
 import { Link } from '../../utils/router.jsx';
 import LeistungIcon from '../../components/shared/LeistungIcon.jsx';
 
-const STATUS_LABELS = {
-  draft: { label: 'Entwurf', color: 'var(--color-text-muted)' },
-  documents_pending: { label: 'Dokumente fehlen', color: 'var(--ap-gold)' },
-  analyzing: { label: 'Wird analysiert...', color: 'var(--ap-sage)' },
-  analysis_complete: { label: 'Analyse fertig', color: 'var(--ap-dark)' },
-  payment_pending: { label: 'Zahlung offen', color: 'var(--ap-gold)' },
-  signature_pending: { label: 'Unterschrift nötig', color: 'var(--ap-gold)' },
-  submitted: { label: 'Eingereicht', color: 'var(--ap-sage)' },
-  approved: { label: 'Bewilligt', color: 'var(--ap-success, #27AE60)' },
-  rejected: { label: 'Abgelehnt', color: 'var(--ap-error, #C0392B)' },
-  cancelled: { label: 'Storniert', color: 'var(--color-text-muted)' },
+const STATUS_CONFIG = {
+  draft: { label: 'Entwurf', color: '#888780', bg: '#F1EFE8', icon: '📝' },
+  documents_pending: { label: 'Dokumente fehlen', color: '#854F0B', bg: '#FAEEDA', icon: '📎' },
+  analyzing: { label: 'Wird analysiert', color: '#0F6E56', bg: '#E1F5EE', icon: '🔍' },
+  analysis_complete: { label: 'Analyse fertig', color: '#185FA5', bg: '#E6F1FB', icon: '✅' },
+  payment_pending: { label: 'Zahlung offen', color: '#854F0B', bg: '#FAEEDA', icon: '💳' },
+  signature_pending: { label: 'Unterschrift nötig', color: '#854F0B', bg: '#FAEEDA', icon: '✍️' },
+  submitted: { label: 'Bei Behörde eingereicht', color: '#0F6E56', bg: '#E1F5EE', icon: '📨' },
+  approved: { label: 'Bewilligt', color: '#085041', bg: '#E1F5EE', icon: '🎉' },
+  rejected: { label: 'Abgelehnt', color: '#791F1F', bg: '#FCEBEB', icon: '✗' },
+  cancelled: { label: 'Storniert', color: '#888780', bg: '#F1EFE8', icon: '—' },
 };
+
+function StatCard({ value, label, accent }) {
+  return (
+    <div style={{
+      padding: 'var(--space-5)', background: 'var(--color-bg-card)',
+      borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)',
+      textAlign: 'center',
+    }}>
+      <div style={{
+        fontSize: 'var(--text-3xl)', fontWeight: 700,
+        color: accent || 'var(--ap-dark)', fontFamily: 'var(--font-mono)',
+      }}>{value}</div>
+      <div style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', marginTop: 4 }}>{label}</div>
+    </div>
+  );
+}
+
+function ApplicationCard({ app }) {
+  const status = STATUS_CONFIG[app.status] || STATUS_CONFIG.draft;
+  const isActionNeeded = ['documents_pending', 'payment_pending', 'signature_pending'].includes(app.status);
+
+  const actionUrl = app.status === 'documents_pending' ? `/app/upload?antrag=${app.id}`
+    : app.status === 'payment_pending' ? `/app/zahlung/${app.id}`
+    : app.status === 'signature_pending' ? `/app/signatur/${app.id}`
+    : `/app/antrag/${app.id}`;
+
+  return (
+    <Link to={`/app/antrag/${app.id}`} style={{
+      display: 'block', padding: 'var(--space-5)',
+      background: 'var(--color-bg-card)', borderRadius: 'var(--radius-lg)',
+      border: isActionNeeded ? '2px solid var(--ap-gold)' : '1px solid var(--color-border)',
+      textDecoration: 'none', transition: 'all var(--transition-base)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+        <LeistungIcon id={app.leistung_id} size={44} />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 600, color: 'var(--ap-dark)', fontSize: 'var(--text-base)' }}>{app.leistung_name}</div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginTop: 2 }}>
+            Erstellt am {new Date(app.created_at).toLocaleDateString('de-DE')}
+          </div>
+        </div>
+        {app.estimated_monthly > 0 && (
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--ap-gold)', fontFamily: 'var(--font-mono)' }}>
+              ~{Number(app.estimated_monthly).toLocaleString('de-DE')} €
+            </div>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>pro Monat</div>
+          </div>
+        )}
+      </div>
+
+      {/* Status Bar */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginTop: 'var(--space-4)', paddingTop: 'var(--space-3)',
+        borderTop: '1px solid var(--color-border-light)',
+      }}>
+        <span style={{
+          fontSize: 'var(--text-xs)', fontWeight: 600,
+          padding: '4px 12px', borderRadius: 'var(--radius-full)',
+          background: status.bg, color: status.color,
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}>
+          <span style={{ fontSize: 12 }}>{status.icon}</span>
+          {status.label}
+        </span>
+
+        {isActionNeeded && (
+          <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--ap-gold)' }}>
+            Aktion erforderlich →
+          </span>
+        )}
+      </div>
+    </Link>
+  );
+}
 
 export default function DashboardPage() {
   const { user, profile, loading } = useAppUser();
@@ -38,79 +114,132 @@ export default function DashboardPage() {
     loadApps();
   }, [user]);
 
-  if (loading) return <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--color-text-muted)' }}>Laden...</div>;
+  if (loading) {
+    return (
+      <div style={{ padding: 'var(--space-16)', textAlign: 'center' }}>
+        <div style={{
+          width: 32, height: 32, border: '3px solid var(--ap-mint)',
+          borderTop: '3px solid var(--ap-dark)', borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite', margin: '0 auto var(--space-4)',
+        }} />
+        <p style={{ color: 'var(--color-text-muted)' }}>Dashboard wird geladen...</p>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
-  const firstName = user?.firstName || profile?.full_name?.split(' ')[0] || 'Hallo';
+  const firstName = user?.firstName || profile?.full_name?.split(' ')[0] || '';
+  const greeting = new Date().getHours() < 12 ? 'Guten Morgen' : new Date().getHours() < 18 ? 'Guten Tag' : 'Guten Abend';
+
+  const activeApps = applications.filter(a => !['cancelled', 'rejected'].includes(a.status));
+  const approvedApps = applications.filter(a => a.status === 'approved');
+  const pendingApps = applications.filter(a => ['documents_pending', 'payment_pending', 'signature_pending'].includes(a.status));
+  const totalMonthly = approvedApps.reduce((sum, a) => sum + Number(a.estimated_monthly || 0), 0);
 
   return (
     <>
       <SEOHead title="Dashboard" noindex />
-      <div style={{ marginBottom: 'var(--space-8)' }}>
-        <h1 style={{ fontSize: 'var(--text-2xl)', marginBottom: 'var(--space-1)' }}>Willkommen zurück, {firstName}</h1>
-        <p style={{ color: 'var(--color-text-muted)' }}>Hier sehen Sie Ihre Anträge auf einen Blick.</p>
+
+      {/* Greeting */}
+      <div style={{ marginBottom: 'var(--space-6)' }}>
+        <h1 style={{ fontSize: 'var(--text-2xl)', marginBottom: 'var(--space-1)' }}>
+          {greeting}{firstName ? `, ${firstName}` : ''} 👋
+        </h1>
+        <p style={{ color: 'var(--color-text-muted)' }}>
+          {applications.length === 0
+            ? 'Willkommen bei AdminPilot! Starten Sie Ihren ersten Antrag.'
+            : `Sie haben ${activeApps.length} aktive${activeApps.length === 1 ? 'n' : ''} Antrag${activeApps.length !== 1 ? 'e' : ''}.`
+          }
+        </p>
       </div>
+
+      {/* Stats */}
+      {applications.length > 0 && (
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+          gap: 'var(--space-3)', marginBottom: 'var(--space-8)',
+        }}>
+          <StatCard value={activeApps.length} label="Aktive Anträge" />
+          <StatCard value={pendingApps.length} label="Aktion nötig" accent={pendingApps.length > 0 ? 'var(--ap-gold)' : undefined} />
+          <StatCard value={approvedApps.length} label="Bewilligt" accent={approvedApps.length > 0 ? '#0F6E56' : undefined} />
+          <StatCard value={totalMonthly > 0 ? `${totalMonthly.toLocaleString('de-DE')} €` : '—'} label="Monatl. Leistung" accent="var(--ap-gold)" />
+        </div>
+      )}
 
       {/* Quick Actions */}
-      <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-8)', flexWrap: 'wrap' }}>
-        <Button variant="primary" to="/app/neuer-antrag">Neuen Antrag starten →</Button>
-        <Button variant="ghost" to="/leistungscheck">Kostenloser Leistungscheck</Button>
+      <div style={{
+        display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-8)', flexWrap: 'wrap',
+      }}>
+        <Button variant="primary" to="/app/neuer-antrag">
+          + Neuen Antrag starten
+        </Button>
+        {applications.length === 0 && (
+          <Button variant="ghost" to="/leistungscheck">
+            Kostenloser Leistungscheck
+          </Button>
+        )}
       </div>
 
-      {/* Applications */}
-      <h2 style={{ fontSize: 'var(--text-lg)', marginBottom: 'var(--space-4)' }}>Meine Anträge</h2>
-
+      {/* Applications List */}
       {loadingApps ? (
         <p style={{ color: 'var(--color-text-muted)' }}>Anträge werden geladen...</p>
       ) : applications.length === 0 ? (
         <div style={{
-          padding: 'var(--space-10)', textAlign: 'center',
-          background: 'var(--color-bg-card)', borderRadius: 'var(--radius-lg)',
+          padding: 'var(--space-12)', textAlign: 'center',
+          background: 'var(--color-bg-card)', borderRadius: 'var(--radius-xl)',
           border: '2px dashed var(--color-border)',
         }}>
-          <div style={{ fontSize: 40, marginBottom: 'var(--space-4)', opacity: 0.4 }}>📋</div>
+          <div style={{ width: 64, height: 64, borderRadius: 'var(--radius-full)', background: 'var(--ap-mint)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-4)', fontSize: 28 }}>📋</div>
           <h3 style={{ marginBottom: 'var(--space-2)' }}>Noch keine Anträge</h3>
-          <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)' }}>
-            Starten Sie Ihren ersten Antrag – in wenigen Minuten.
+          <p style={{ color: 'var(--color-text-muted)', maxWidth: 400, margin: '0 auto var(--space-6)' }}>
+            Starten Sie Ihren ersten Antrag und finden Sie heraus, welche Leistungen Ihnen möglicherweise zustehen.
           </p>
-          <Button to="/app/neuer-antrag">Jetzt loslegen →</Button>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Button to="/app/neuer-antrag">Antrag starten →</Button>
+            <Button variant="ghost" to="/leistungscheck">Erst den Leistungscheck machen</Button>
+          </div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
-          {applications.map((app) => {
-            const status = STATUS_LABELS[app.status] || STATUS_LABELS.draft;
-            return (
-              <Link key={app.id} to={`/app/antrag/${app.id}`} style={{
-                display: 'flex', alignItems: 'center', gap: 'var(--space-4)',
-                padding: 'var(--space-4) var(--space-5)',
-                background: 'var(--color-bg-card)', borderRadius: 'var(--radius-lg)',
-                border: '1px solid var(--color-border)', textDecoration: 'none',
-                transition: 'all var(--transition-base)',
-              }}>
-                <LeistungIcon id={app.leistung_id} size={40} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, color: 'var(--ap-dark)' }}>{app.leistung_name}</div>
-                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', marginTop: 2 }}>
-                    Erstellt am {new Date(app.created_at).toLocaleDateString('de-DE')}
-                  </div>
-                </div>
-                {app.estimated_monthly > 0 && (
-                  <div style={{ textAlign: 'right', marginRight: 'var(--space-3)' }}>
-                    <div style={{ fontSize: 'var(--text-base)', fontWeight: 600, color: 'var(--ap-gold)', fontFamily: 'var(--font-mono)' }}>~{app.estimated_monthly} €</div>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>/Monat</div>
-                  </div>
-                )}
-                <span style={{
-                  fontSize: 'var(--text-xs)', fontWeight: 600,
-                  padding: '4px 10px', borderRadius: 'var(--radius-full)',
-                  background: 'var(--color-bg)', color: status.color,
-                }}>
-                  {status.label}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
+        <>
+          {/* Aktionen erforderlich */}
+          {pendingApps.length > 0 && (
+            <div style={{ marginBottom: 'var(--space-6)' }}>
+              <h2 style={{ fontSize: 'var(--text-lg)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--ap-gold)' }} />
+                Aktion erforderlich
+              </h2>
+              <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+                {pendingApps.map(app => <ApplicationCard key={app.id} app={app} />)}
+              </div>
+            </div>
+          )}
+
+          {/* Alle Anträge */}
+          <div>
+            <h2 style={{ fontSize: 'var(--text-lg)', marginBottom: 'var(--space-3)' }}>
+              {pendingApps.length > 0 ? 'Weitere Anträge' : 'Meine Anträge'}
+            </h2>
+            <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+              {applications.filter(a => !pendingApps.includes(a)).map(app => (
+                <ApplicationCard key={app.id} app={app} />
+              ))}
+            </div>
+          </div>
+        </>
       )}
+
+      {/* Info Box */}
+      <div style={{
+        marginTop: 'var(--space-8)', padding: 'var(--space-5)',
+        background: 'var(--color-bg-card)', borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--color-border)', display: 'flex',
+        alignItems: 'flex-start', gap: 'var(--space-3)',
+      }}>
+        <span style={{ fontSize: 16, flexShrink: 0 }}>ℹ️</span>
+        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+          <strong style={{ color: 'var(--ap-dark)' }}>So funktioniert's:</strong> Wählen Sie eine Leistung, laden Sie Ihre Dokumente hoch, und unsere KI prüft Ihren möglichen Anspruch. Bei Beauftragung zahlen Sie einmalig 49 €. Wird der Antrag abgelehnt, erhalten Sie Ihr Geld zurück.
+        </div>
+      </div>
     </>
   );
 }
