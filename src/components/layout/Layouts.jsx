@@ -1,10 +1,9 @@
 import Header from './Header';
 import Footer from './Footer';
-import { Link, getPath } from '../../utils/router';
+import { Link, getPath } from '../../utils/router.jsx';
 import Logo from '../shared/Logo';
 
 /* === PublicLayout === */
-
 export function PublicLayout({ children }) {
   return (
     <>
@@ -18,7 +17,6 @@ export function PublicLayout({ children }) {
 }
 
 /* === AppLayout === */
-
 const APP_NAV = [
   { icon: '📊', label: 'Dashboard', path: '/app' },
   { icon: '➕', label: 'Neuer Antrag', path: '/app/neuer-antrag' },
@@ -31,7 +29,6 @@ export function AppLayout({ children }) {
   const currentPath = getPath();
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Sidebar (Desktop) */}
       <aside className="app-sidebar" style={{
         width: 240, background: 'var(--ap-dark)', color: '#FFF',
         padding: 'var(--space-6)', display: 'flex', flexDirection: 'column',
@@ -44,42 +41,37 @@ export function AppLayout({ children }) {
           {APP_NAV.map((item) => {
             const isActive = currentPath === item.path || (item.path !== '/app' && currentPath.startsWith(item.path));
             return (
-              <Link
-                key={item.path}
-                to={item.path}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
-                  padding: 'var(--space-3) var(--space-4)',
-                  borderRadius: 'var(--radius-md)',
-                  fontSize: 'var(--text-sm)', fontWeight: isActive ? 600 : 400,
-                  background: isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
-                  color: isActive ? '#FFF' : 'var(--ap-mint)',
-                  transition: 'all var(--transition-fast)',
-                  textDecoration: 'none',
-                }}
-              >
+              <Link key={item.path} to={item.path} style={{
+                display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
+                padding: 'var(--space-3) var(--space-4)',
+                borderRadius: 'var(--radius-md)',
+                fontSize: 'var(--text-sm)', fontWeight: isActive ? 600 : 400,
+                background: isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
+                color: isActive ? '#FFF' : 'var(--ap-mint)',
+                transition: 'all var(--transition-fast)',
+                textDecoration: 'none',
+              }}>
                 <span style={{ fontSize: '16px' }}>{item.icon}</span>
                 {item.label}
               </Link>
             );
           })}
         </nav>
-        <a href="mailto:kontakt@adminpilot.de" style={{
-          fontSize: 'var(--text-xs)', color: 'var(--ap-sage)', textDecoration: 'none',
-          padding: 'var(--space-3) var(--space-4)',
-        }}>
-          ✉ Support kontaktieren
-        </a>
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 'var(--space-4)' }}>
+          <Link to="/" style={{
+            fontSize: 'var(--text-xs)', color: 'var(--ap-sage)', textDecoration: 'none',
+            display: 'block', padding: 'var(--space-2) var(--space-4)',
+          }}>
+            ← Zurück zur Website
+          </Link>
+        </div>
       </aside>
-
-      {/* Main Content */}
       <main className="app-content" style={{
         flex: 1, marginLeft: 240, padding: 'var(--space-8)',
         background: 'var(--color-bg)', minHeight: '100vh',
       }}>
         {children}
       </main>
-
       <style>{`
         @media (max-width: 768px) {
           .app-sidebar { display: none !important; }

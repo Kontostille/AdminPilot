@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getPath, matchRoute } from './utils/router';
 import { PublicLayout, AppLayout, AuthLayout } from './components/layout/Layouts';
+import { ProtectedRoute } from './utils/auth.jsx';
 
 // === Public Pages ===
 import HomePage from './pages/public/HomePage';
@@ -115,7 +116,7 @@ export default function App() {
 
   if (APP_ROUTES[path]) {
     const Page = APP_ROUTES[path];
-    return <AppLayout><Page /></AppLayout>;
+    return <ProtectedRoute><AppLayout><Page /></AppLayout></ProtectedRoute>;
   }
 
   if (AUTH_ROUTES[path]) {
@@ -129,7 +130,7 @@ export default function App() {
     if (params) {
       const Page = route.component;
       if (route.layout === 'app') {
-        return <AppLayout><Page params={params} /></AppLayout>;
+        return <ProtectedRoute><AppLayout><Page params={params} /></AppLayout></ProtectedRoute>;
       }
       return <PublicLayout><Page params={params} /></PublicLayout>;
     }
