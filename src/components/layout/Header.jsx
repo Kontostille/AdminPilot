@@ -45,7 +45,7 @@ export default function Header() {
             </Link>
           ))}
           <Button variant="dark" size="small" to="/leistungscheck">
-            Anspruch prüfen
+            Kostenlos prüfen
           </Button>
         </nav>
 
@@ -87,7 +87,7 @@ export default function Header() {
           ))}
           <div style={{ marginTop: 'var(--space-4)' }}>
             <Button variant="primary" fullWidth to="/leistungscheck" onClick={() => setMobileOpen(false)}>
-              Anspruch prüfen →
+              Kostenlos prüfen →
             </Button>
           </div>
           <a href="mailto:kontakt@adminpilot.de" style={{

@@ -153,7 +153,7 @@ export const LEISTUNGEN = [
     id: 'bildung-teilhabe',
     slug: 'bildung-teilhabe',
     name: 'Bildungs- & Teilhabepaket',
-    shortName: 'BuT',
+    shortName: 'Bildung & Teilhabe',
     icon: '📚',
     funnel: ['familien'],
     route: '/leistungen/bildung-teilhabe',

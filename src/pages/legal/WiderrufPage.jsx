@@ -1,43 +1,19 @@
 import { SEOHead } from '../../components/shared/index.jsx';
-
+import { COMPANY } from '../../data/siteConfig.js';
 export default function WiderrufPage() {
-  return (
-    <>
-      <SEOHead title="Widerrufsbelehrung" description="14-Tage Widerrufsrecht" />
-      <div className="section">
-        <div className="container">
-          <div style={{
-            padding: 'var(--space-16) 0',
-            textAlign: 'center',
-          }}>
-            <span style={{
-              display: 'inline-block', padding: '4px 12px', borderRadius: 'var(--radius-full)',
-              background: 'var(--ap-mint)', color: 'var(--ap-dark)',
-              fontSize: 'var(--text-xs)', fontWeight: 600, marginBottom: 'var(--space-4)',
-              textTransform: 'uppercase', letterSpacing: '0.1em',
-            }}>
-              Rechtliches
-            </span>
-            <h1 style={{ marginBottom: 'var(--space-4)' }}>Widerrufsbelehrung</h1>
-            <p style={{ color: 'var(--color-text-muted)', maxWidth: '500px', margin: '0 auto' }}>
-              14-Tage Widerrufsrecht
-            </p>
-            <div style={{
-              marginTop: 'var(--space-8)',
-              padding: 'var(--space-6)',
-              background: 'var(--color-bg-card)',
-              borderRadius: 'var(--radius-lg)',
-              border: '2px dashed var(--color-border)',
-              maxWidth: '400px',
-              margin: 'var(--space-8) auto 0',
-            }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', margin: 0 }}>
-                🚧 Diese Seite wird aktuell entwickelt.
-              </p>
-            </div>
-          </div>
-        </div>
+  return (<><SEOHead title="Widerrufsbelehrung" noindex />
+    <section className="section"><div className="container" style={{ maxWidth: 'var(--max-width-content)' }}>
+      <h1>Widerrufsbelehrung</h1>
+      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', marginBottom: 'var(--space-6)' }}>Stand: April 2026 · Entwurf – wird durch Rechtsanwalt finalisiert</p>
+      <div style={{ lineHeight: 1.9 }}>
+        <h2>Widerrufsrecht</h2>
+        <p>Sie haben das Recht, binnen vierzehn Tagen ohne Angabe von Gründen diesen Vertrag zu widerrufen. Die Widerrufsfrist beträgt vierzehn Tage ab dem Tag des Vertragsschlusses.</p>
+        <p>Um Ihr Widerrufsrecht auszuüben, müssen Sie uns ({COMPANY.name}, {COMPANY.address}, {COMPANY.zip} {COMPANY.city}, E-Mail: {COMPANY.email}) mittels einer eindeutigen Erklärung über Ihren Entschluss, diesen Vertrag zu widerrufen, informieren.</p>
+        <h2>Folgen des Widerrufs</h2>
+        <p>Wenn Sie diesen Vertrag widerrufen, haben wir Ihnen alle Zahlungen, die wir von Ihnen erhalten haben, unverzüglich und spätestens binnen vierzehn Tagen ab dem Tag zurückzuzahlen, an dem die Mitteilung über Ihren Widerruf bei uns eingegangen ist.</p>
+        <h2>Vorzeitiger Verlust des Widerrufsrechts</h2>
+        <p>Bitte beachten Sie, dass das Widerrufsrecht vorzeitig erlöschen kann, wenn die Dienstleistung (Antragstellung) vor Ablauf der Widerrufsfrist vollständig erbracht wurde und Sie dem ausdrücklich zugestimmt haben.</p>
       </div>
-    </>
-  );
+    </div></section>
+  </>);
 }

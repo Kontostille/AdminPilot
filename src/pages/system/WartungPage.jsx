@@ -1,43 +1,14 @@
 import { SEOHead } from '../../components/shared/index.jsx';
-
+import { COMPANY } from '../../data/siteConfig.js';
 export default function WartungPage() {
-  return (
-    <>
-      <SEOHead title="Wartung" description="Wir sind gleich zurück" />
-      <div className="section">
-        <div className="container">
-          <div style={{
-            padding: 'var(--space-16) 0',
-            textAlign: 'center',
-          }}>
-            <span style={{
-              display: 'inline-block', padding: '4px 12px', borderRadius: 'var(--radius-full)',
-              background: 'var(--ap-mint)', color: 'var(--ap-dark)',
-              fontSize: 'var(--text-xs)', fontWeight: 600, marginBottom: 'var(--space-4)',
-              textTransform: 'uppercase', letterSpacing: '0.1em',
-            }}>
-              System
-            </span>
-            <h1 style={{ marginBottom: 'var(--space-4)' }}>Wartung</h1>
-            <p style={{ color: 'var(--color-text-muted)', maxWidth: '500px', margin: '0 auto' }}>
-              Wir sind gleich zurück
-            </p>
-            <div style={{
-              marginTop: 'var(--space-8)',
-              padding: 'var(--space-6)',
-              background: 'var(--color-bg-card)',
-              borderRadius: 'var(--radius-lg)',
-              border: '2px dashed var(--color-border)',
-              maxWidth: '400px',
-              margin: 'var(--space-8) auto 0',
-            }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', margin: 0 }}>
-                🚧 Diese Seite wird aktuell entwickelt.
-              </p>
-            </div>
-          </div>
-        </div>
+  return (<><SEOHead title="Wartung" noindex />
+    <section style={{ minHeight: '80vh', display: 'flex', alignItems: 'center' }}>
+      <div className="container" style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 48, marginBottom: 'var(--space-4)' }}>🔧</div>
+        <h1>Wir sind gleich zurück</h1>
+        <p style={{ color: 'var(--color-text-muted)', maxWidth: 400, margin: 'var(--space-4) auto' }}>AdminPilot wird gerade gewartet. Wir sind in Kürze wieder für Sie da.</p>
+        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>Bei dringenden Fragen: <a href={'mailto:'+COMPANY.email}>{COMPANY.email}</a></p>
       </div>
-    </>
-  );
+    </section>
+  </>);
 }

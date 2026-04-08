@@ -19,7 +19,7 @@ const styles = {
   },
   primary: {
     background: 'var(--ap-gold)',
-    color: '#FFFFFF',
+    color: 'var(--ap-dark)',
   },
   secondary: {
     background: 'transparent',

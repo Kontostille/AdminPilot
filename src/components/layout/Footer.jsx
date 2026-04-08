@@ -9,7 +9,7 @@ const FOOTER_LINKS = {
     { label: 'FAQ', path: '/faq' },
   ],
   'Über uns': [
-    { label: 'Über AdminPilot', path: '/ueber-uns' },
+    
     { label: 'Partner', path: '/partner' },
     { label: 'Presse', path: '/presse' },
     { label: 'Kontakt', path: '/kontakt' },

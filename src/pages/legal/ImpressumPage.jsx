@@ -1,43 +1,25 @@
 import { SEOHead } from '../../components/shared/index.jsx';
-
+import { COMPANY } from '../../data/siteConfig.js';
 export default function ImpressumPage() {
-  return (
-    <>
-      <SEOHead title="Impressum" description="Angaben gemäß §5 TMG" />
-      <div className="section">
-        <div className="container">
-          <div style={{
-            padding: 'var(--space-16) 0',
-            textAlign: 'center',
-          }}>
-            <span style={{
-              display: 'inline-block', padding: '4px 12px', borderRadius: 'var(--radius-full)',
-              background: 'var(--ap-mint)', color: 'var(--ap-dark)',
-              fontSize: 'var(--text-xs)', fontWeight: 600, marginBottom: 'var(--space-4)',
-              textTransform: 'uppercase', letterSpacing: '0.1em',
-            }}>
-              Rechtliches
-            </span>
-            <h1 style={{ marginBottom: 'var(--space-4)' }}>Impressum</h1>
-            <p style={{ color: 'var(--color-text-muted)', maxWidth: '500px', margin: '0 auto' }}>
-              Angaben gemäß §5 TMG
-            </p>
-            <div style={{
-              marginTop: 'var(--space-8)',
-              padding: 'var(--space-6)',
-              background: 'var(--color-bg-card)',
-              borderRadius: 'var(--radius-lg)',
-              border: '2px dashed var(--color-border)',
-              maxWidth: '400px',
-              margin: 'var(--space-8) auto 0',
-            }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', margin: 0 }}>
-                🚧 Diese Seite wird aktuell entwickelt.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
-  );
+  return (<><SEOHead title="Impressum" noindex />
+    <section className="section"><div className="container" style={{ maxWidth: 'var(--max-width-content)' }}>
+      <h1>Impressum</h1>
+      <p style={{ marginTop: 'var(--space-4)', lineHeight: 2 }}>
+        <strong>Angaben gemäß § 5 TMG:</strong><br/><br/>
+        {COMPANY.name}<br/>{COMPANY.address}<br/>{COMPANY.zip} {COMPANY.city}<br/>{COMPANY.country}<br/><br/>
+        <strong>Vertreten durch die Geschäftsführung:</strong><br/>
+        {COMPANY.directors.join(', ')}<br/><br/>
+        <strong>Kontakt:</strong><br/>
+        E-Mail: <a href={'mailto:'+COMPANY.email}>{COMPANY.email}</a><br/><br/>
+        <strong>Registereintrag:</strong><br/>
+        Eingetragen im Handelsregister beim {COMPANY.register}<br/><br/>
+        <strong>Umsatzsteuer-ID:</strong><br/>
+        Umsatzsteuer-Identifikationsnummer gemäß §27 a Umsatzsteuergesetz: {COMPANY.ustId}<br/><br/>
+        <strong>Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV:</strong><br/>
+        {COMPANY.directors[0]}<br/>{COMPANY.address}<br/>{COMPANY.zip} {COMPANY.city}<br/><br/>
+        <strong>Hinweis:</strong><br/>
+        AdminPilot ist ein Service der {COMPANY.name}. AdminPilot bietet keine Rechts- oder Sozialberatung an. Der Service ist eine technische Ausfüllhilfe für Verwaltungsanträge.
+      </p>
+    </div></section>
+  </>);
 }

@@ -1,43 +1,24 @@
 import { SEOHead } from '../../components/shared/index.jsx';
+import { COMPANY } from '../../data/siteConfig.js';
 
 export default function PressePage() {
   return (
     <>
-      <SEOHead title="Presse" description="Medienmaterialien und Pressekontakt" />
-      <div className="section">
-        <div className="container">
-          <div style={{
-            padding: 'var(--space-16) 0',
-            textAlign: 'center',
-          }}>
-            <span style={{
-              display: 'inline-block', padding: '4px 12px', borderRadius: 'var(--radius-full)',
-              background: 'var(--ap-mint)', color: 'var(--ap-dark)',
-              fontSize: 'var(--text-xs)', fontWeight: 600, marginBottom: 'var(--space-4)',
-              textTransform: 'uppercase', letterSpacing: '0.1em',
-            }}>
-              Presse
-            </span>
-            <h1 style={{ marginBottom: 'var(--space-4)' }}>Presse</h1>
-            <p style={{ color: 'var(--color-text-muted)', maxWidth: '500px', margin: '0 auto' }}>
-              Medienmaterialien und Pressekontakt
-            </p>
-            <div style={{
-              marginTop: 'var(--space-8)',
-              padding: 'var(--space-6)',
-              background: 'var(--color-bg-card)',
-              borderRadius: 'var(--radius-lg)',
-              border: '2px dashed var(--color-border)',
-              maxWidth: '400px',
-              margin: 'var(--space-8) auto 0',
-            }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', margin: 0 }}>
-                🚧 Diese Seite wird aktuell entwickelt.
-              </p>
-            </div>
+      <SEOHead title="Presse" description="Pressematerialien und Medienkontakt für AdminPilot." />
+      <section className="section">
+        <div className="container" style={{ maxWidth: 'var(--max-width-narrow)' }}>
+          <h1 style={{ marginBottom: 'var(--space-3)' }}>Presse</h1>
+          <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-8)' }}>Pressematerialien und Medienkontakt. Für Anfragen wenden Sie sich bitte an:</p>
+          <div style={{ padding: 'var(--space-6)', background: 'var(--color-bg)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
+            <h3 style={{ marginBottom: 'var(--space-3)' }}>Medienkontakt</h3>
+            <p style={{ lineHeight: 1.8 }}>{COMPANY.name}<br/>E-Mail: <a href={'mailto:'+COMPANY.email}>{COMPANY.email}</a><br/>{COMPANY.address}, {COMPANY.zip} {COMPANY.city}</p>
+          </div>
+          <div style={{ marginTop: 'var(--space-6)', padding: 'var(--space-6)', background: 'var(--color-bg)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
+            <h3 style={{ marginBottom: 'var(--space-3)' }}>Über AdminPilot</h3>
+            <p style={{ lineHeight: 1.8 }}>AdminPilot ist ein digitaler Antragsservice der {COMPANY.name}. Der Service hilft Privatpersonen in Deutschland, staatliche Leistungen wie Wohngeld, Kindergeld oder KV-Zuschuss einfach und automatisiert zu beantragen.</p>
           </div>
         </div>
-      </div>
+      </section>
     </>
   );
 }
