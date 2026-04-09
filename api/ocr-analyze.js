@@ -1,30 +1,9 @@
-// AdminPilot – OCR Analyze (optimiert: 1 API-Call statt 2)
-import { createClient } from '@supabase/supabase-js';
+// AdminPilot – OCR (optimiert: Base64 kommt direkt vom Client)
+// Kein Supabase-Download nötig → viel schneller
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-
-// EIN Prompt der beides macht: Typ erkennen + Daten extrahieren
-const COMBINED_PROMPT = `Analysiere dieses deutsche Dokument für einen Sozialleistungsantrag.
-
-Schritt 1: Bestimme den Dokumenttyp. Mögliche Typen: personalausweis, mietvertrag, einkommensnachweis, rentenbescheid, geburtsurkunde, kv_bescheinigung, kindergeld_bescheid, other
-
-Schritt 2: Extrahiere die relevanten Daten je nach Typ:
-- personalausweis: full_name, birth_date (YYYY-MM-DD), address
-- mietvertrag: monthly_rent (Kaltmiete Zahl), warm_rent (Warmmiete Zahl), address
-- einkommensnachweis: gross_income (Brutto monatlich Zahl), net_income (Netto monatlich Zahl), employer
-- rentenbescheid: monthly_pension (Bruttorente Zahl), net_pension (Nettorente Zahl), pension_type
-- geburtsurkunde: child_name, birth_date (YYYY-MM-DD), parent_names (Array)
-- kv_bescheinigung: insurance_type (gesetzlich/privat), monthly_premium (Zahl)
-- kindergeld_bescheid: monthly_amount (Zahl), number_of_children (Zahl)
-- other: document_type, summary
-
-Antworte NUR mit diesem JSON-Format, kein anderer Text:
-{"doc_type": "...", "extracted": {...}}`;
+export const config = {
+  maxDuration: 60, // Max timeout (Pro plan: 60s, Hobby: 10s)
+};
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -33,30 +12,28 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+
   try {
-    const { document_id, application_id } = req.body;
-    if (!document_id || !application_id) return res.status(400).json({ error: 'document_id and application_id required' });
+    const { base64, media_type, file_name } = req.body;
+    if (!base64) return res.status(400).json({ error: 'base64 image data required' });
 
-    const { data: doc } = await supabase.from('documents').select('*').eq('id', document_id).single();
-    if (!doc) return res.status(404).json({ error: 'Document not found' });
+    const PROMPT = `Analysiere dieses deutsche Dokument für einen Sozialleistungsantrag.
 
-    await supabase.from('documents').update({ ocr_status: 'processing' }).eq('id', document_id);
+Bestimme den Dokumenttyp (personalausweis, mietvertrag, einkommensnachweis, rentenbescheid, geburtsurkunde, kv_bescheinigung, kindergeld_bescheid, other) und extrahiere die relevanten Daten:
+- personalausweis: full_name, birth_date (YYYY-MM-DD), address
+- mietvertrag: monthly_rent (Kaltmiete Zahl), warm_rent (Warmmiete Zahl), address
+- einkommensnachweis: gross_income (Brutto monatlich Zahl), net_income (Netto monatlich Zahl), employer
+- rentenbescheid: monthly_pension (Bruttorente Zahl), net_pension (Nettorente Zahl), pension_type
+- geburtsurkunde: child_name, birth_date (YYYY-MM-DD), parent_names (Array)
+- kv_bescheinigung: insurance_type, monthly_premium (Zahl)
+- kindergeld_bescheid: monthly_amount (Zahl), number_of_children (Zahl)
+- other: document_type, summary
 
-    // Datei herunterladen
-    const { data: fileData } = await supabase.storage.from('documents').download(doc.file_path);
-    if (!fileData) {
-      await supabase.from('documents').update({ ocr_status: 'failed' }).eq('id', document_id);
-      return res.status(500).json({ error: 'File download failed' });
-    }
+Antworte NUR mit JSON: {"doc_type": "...", "extracted": {...}}`;
 
-    const base64 = Buffer.from(await fileData.arrayBuffer()).toString('base64');
-    const fileName = doc.file_name.toLowerCase();
-    let mediaType = 'image/jpeg';
-    if (fileName.endsWith('.png')) mediaType = 'image/png';
-    else if (fileName.endsWith('.pdf')) mediaType = 'application/pdf';
+    const contentType = (media_type || '').includes('pdf') ? 'document' : 'image';
 
-    // EIN API-Call für alles (statt vorher 2)
-    const contentType = mediaType === 'application/pdf' ? 'document' : 'image';
     const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -68,11 +45,17 @@ export default async function handler(req, res) {
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 500,
         messages: [{ role: 'user', content: [
-          { type: contentType, source: { type: 'base64', media_type: mediaType, data: base64 } },
-          { type: 'text', text: COMBINED_PROMPT },
+          { type: contentType, source: { type: 'base64', media_type: media_type || 'image/jpeg', data: base64 } },
+          { type: 'text', text: PROMPT },
         ]}],
       }),
     });
+
+    if (!apiRes.ok) {
+      const err = await apiRes.text();
+      console.error('Claude API error:', err);
+      return res.status(500).json({ error: 'Claude API error', details: err });
+    }
 
     const result = await apiRes.json();
     const rawText = result.content?.[0]?.text || '{}';
@@ -81,15 +64,8 @@ export default async function handler(req, res) {
     try {
       parsed = JSON.parse(rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
     } catch {
-      parsed = { doc_type: 'other', extracted: { raw_text: rawText, parse_error: true } };
+      parsed = { doc_type: 'other', extracted: { raw_text: rawText } };
     }
-
-    // Ergebnis speichern
-    await supabase.from('documents').update({
-      doc_type: parsed.doc_type || 'other',
-      ocr_status: 'complete',
-      ocr_result: { ...parsed, processed_at: new Date().toISOString() },
-    }).eq('id', document_id);
 
     return res.status(200).json({ success: true, ...parsed });
   } catch (error) {

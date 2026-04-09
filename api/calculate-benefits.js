@@ -1,3 +1,4 @@
+export const config = { maxDuration: 60 };
 // AdminPilot – Anspruchsberechnung (Vercel Serverless Function)
 import { createClient } from '@supabase/supabase-js';
 

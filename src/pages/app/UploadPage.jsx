@@ -3,15 +3,26 @@ import { SEOHead } from '../../components/shared/index.jsx';
 import Button from '../../components/shared/Button.jsx';
 import { useAppUser } from '../../utils/auth.jsx';
 import { supabase } from '../../utils/supabase.js';
-import { triggerOCR, calculateBenefits } from '../../utils/api.js';
+import { calculateBenefits } from '../../utils/api.js';
 import { navigate } from '../../utils/router.jsx';
 import { compressImage } from '../../utils/imageResize.js';
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function UploadPage() {
   const { user } = useAppUser();
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState({ step: '', detail: '' });
+  const [percent, setPercent] = useState(0);
+  const [stepLabel, setStepLabel] = useState('');
+  const [error, setError] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef();
 
@@ -19,55 +30,90 @@ export default function UploadPage() {
   const antragId = params.get('antrag');
 
   const handleFiles = (newFiles) => {
-    const fileList = Array.from(newFiles).map(f => ({
+    setFiles(prev => [...prev, ...Array.from(newFiles).map(f => ({
       file: f, name: f.name, size: f.size,
       preview: f.type.startsWith('image/') ? URL.createObjectURL(f) : null,
-      status: 'ready',
-    }));
-    setFiles(prev => [...prev, ...fileList]);
+    }))]);
   };
 
   const handleUpload = async () => {
     if (!user || !antragId || files.length === 0) return;
     setUploading(true);
+    setError('');
+    setPercent(0);
 
-    // 1. Bilder komprimieren + parallel hochladen
-    setProgress({ step: 'Hochladen', detail: `${files.length} Datei(en) werden komprimiert & hochgeladen...` });
-    const uploadPromises = files.map(async (f, i) => {
-      try {
-        // Bilder komprimieren (4MB → ~200KB)
-        const compressed = await compressImage(f.file);
-        const path = `${user.id}/${antragId}/${Date.now()}_${i}_${f.name}`;
-        const { error } = await supabase.storage.from('documents').upload(path, compressed);
-        if (!error) {
-          const { data: docData } = await supabase.from('documents').insert({
-            application_id: antragId, clerk_id: user.id,
-            file_name: f.name, file_path: path,
-            file_size: compressed.size, doc_type: 'other', ocr_status: 'pending',
-          }).select().single();
-          f.status = 'uploaded';
-          return docData;
-        }
-        f.status = 'error';
-        return null;
-      } catch { f.status = 'error'; return null; }
-    });
+    const totalSteps = files.length + 2; // compress + OCR per file + calculate
+    let currentStep = 0;
 
-    const uploadedDocs = (await Promise.all(uploadPromises)).filter(Boolean);
-    setFiles([...files]);
+    const updateProgress = (label) => {
+      currentStep++;
+      setPercent(Math.round((currentStep / totalSteps) * 100));
+      setStepLabel(label);
+    };
 
-    // 2. OCR parallel für alle Dokumente
-    setProgress({ step: 'Analyse', detail: 'KI analysiert Ihre Dokumente...' });
-    await Promise.all(
-      uploadedDocs.map(doc => triggerOCR(doc.id, antragId))
-    );
+    try {
+      // 1. Bilder komprimieren
+      updateProgress('Bilder werden komprimiert...');
+      const compressed = await Promise.all(files.map(f => compressImage(f.file)));
 
-    // 3. Anspruch berechnen
-    setProgress({ step: 'Berechnung', detail: 'Anspruch wird berechnet...' });
-    await calculateBenefits(antragId);
+      // 2. Parallel: Supabase Storage Upload + OCR
+      const ocrResults = [];
+      
+      for (let i = 0; i < compressed.length; i++) {
+        const f = files[i];
+        const compFile = compressed[i];
+        updateProgress(`Dokument ${i + 1}/${files.length}: ${f.name} wird analysiert...`);
 
-    setUploading(false);
-    navigate(`/app/antrag/${antragId}`);
+        // Base64 für OCR vorbereiten
+        const base64 = await fileToBase64(compFile);
+        const mediaType = compFile.type || 'image/jpeg';
+
+        // OCR direkt aufrufen (Base64 vom Browser → API → Claude)
+        const ocrPromise = fetch('/api/ocr-analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64, media_type: mediaType, file_name: f.name }),
+        }).then(r => r.json()).catch(err => ({ error: err.message }));
+
+        // Gleichzeitig in Supabase Storage speichern
+        const storagePath = `${user.id}/${antragId}/${Date.now()}_${i}_${f.name}`;
+        const storagePromise = supabase.storage.from('documents').upload(storagePath, compFile);
+
+        const [ocrResult, storageResult] = await Promise.all([ocrPromise, storagePromise]);
+
+        // Dokument in DB speichern
+        const docType = ocrResult.doc_type || 'other';
+        await supabase.from('documents').insert({
+          application_id: antragId, clerk_id: user.id,
+          file_name: f.name, file_path: storagePath,
+          file_size: compFile.size, doc_type: docType,
+          ocr_status: ocrResult.success ? 'complete' : 'failed',
+          ocr_result: ocrResult.success ? { doc_type: docType, extracted: ocrResult.extracted, processed_at: new Date().toISOString() } : { error: ocrResult.error },
+        });
+
+        if (ocrResult.success) ocrResults.push(ocrResult);
+      }
+
+      // 3. Anspruch berechnen
+      updateProgress('Anspruch wird berechnet...');
+      await calculateBenefits(antragId);
+
+      // Status aktualisieren
+      await supabase.from('status_updates').insert({
+        application_id: antragId,
+        status: 'analysis_complete',
+        message: `${ocrResults.length} von ${files.length} Dokument(en) erfolgreich analysiert.`,
+      });
+
+      setPercent(100);
+      setStepLabel('Fertig!');
+      setTimeout(() => navigate(`/app/antrag/${antragId}`), 500);
+
+    } catch (err) {
+      console.error('Upload error:', err);
+      setError(`Fehler: ${err.message}. Bitte versuchen Sie es erneut.`);
+      setUploading(false);
+    }
   };
 
   return (
@@ -79,20 +125,47 @@ export default function UploadPage() {
       </p>
 
       {uploading ? (
-        <div style={{ textAlign: 'center', padding: 'var(--space-12)' }}>
-          <div style={{ width: 48, height: 48, border: '3px solid var(--ap-mint)', borderTop: '3px solid var(--ap-dark)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto var(--space-6)' }} />
-          <p style={{ fontWeight: 600, color: 'var(--ap-dark)', marginBottom: 'var(--space-1)', fontSize: 'var(--text-lg)' }}>{progress.step}</p>
-          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>{progress.detail}</p>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
-            {['Hochladen', 'Analyse', 'Berechnung'].map((s, i) => (
-              <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--text-xs)', color: s === progress.step ? 'var(--ap-dark)' : 'var(--color-text-muted)' }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: s === progress.step ? 'var(--ap-gold)' : ['Hochladen', 'Analyse', 'Berechnung'].indexOf(s) < ['Hochladen', 'Analyse', 'Berechnung'].indexOf(progress.step) ? 'var(--ap-dark)' : 'var(--ap-mint)' }} />
-                {s}
-              </div>
-            ))}
+        <div style={{ padding: 'var(--space-8)' }}>
+          {/* Progress Bar */}
+          <div style={{ background: 'var(--ap-mint)', borderRadius: 'var(--radius-full)', height: 12, overflow: 'hidden', marginBottom: 'var(--space-4)' }}>
+            <div style={{
+              height: '100%', borderRadius: 'var(--radius-full)',
+              background: percent === 100 ? 'var(--ap-dark)' : 'var(--ap-gold)',
+              width: `${percent}%`, transition: 'width 0.5s ease',
+            }} />
           </div>
-          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginTop: 'var(--space-6)' }}>Bitte schließen Sie diese Seite nicht.</p>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
+            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>{stepLabel}</span>
+            <span style={{ fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--ap-dark)', fontFamily: 'var(--font-mono)' }}>{percent}%</span>
+          </div>
+
+          {/* Animated spinner */}
+          {percent < 100 && (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{
+                width: 40, height: 40, border: '3px solid var(--ap-mint)',
+                borderTop: '3px solid var(--ap-dark)', borderRadius: '50%',
+                animation: 'spin 0.8s linear infinite', margin: '0 auto var(--space-4)',
+              }} />
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>Bitte Seite nicht schließen</p>
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
+          )}
+
+          {percent === 100 && (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 40, marginBottom: 'var(--space-2)' }}>✅</div>
+              <p style={{ fontWeight: 600, color: 'var(--ap-dark)' }}>Analyse abgeschlossen</p>
+            </div>
+          )}
+
+          {error && (
+            <div style={{ marginTop: 'var(--space-4)', padding: 'var(--space-4)', background: '#FFF5F5', borderRadius: 'var(--radius-md)', border: '1px solid #E8A3A3' }}>
+              <p style={{ color: 'var(--ap-error, #C0392B)', fontSize: 'var(--text-sm)', margin: 0 }}>{error}</p>
+              <Button variant="ghost" size="small" onClick={() => { setUploading(false); setError(''); }} style={{ marginTop: 'var(--space-3)' }}>Erneut versuchen</Button>
+            </div>
+          )}
         </div>
       ) : (
         <>
@@ -113,7 +186,7 @@ export default function UploadPage() {
             <p style={{ fontWeight: 600, color: 'var(--ap-dark)', marginBottom: 'var(--space-2)' }}>Dateien hierher ziehen oder klicken</p>
             <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>JPG, PNG, PDF · max. 10 MB</p>
             <input ref={fileRef} type="file" multiple accept="image/*,.pdf" style={{ display: 'none' }}
-              onChange={(e) => handleFiles(e.target.files)} />
+              onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }} />
           </div>
 
           <button onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment'; input.onchange = (e) => handleFiles(e.target.files); input.click(); }}
@@ -140,6 +213,10 @@ export default function UploadPage() {
           <Button variant="primary" fullWidth onClick={handleUpload} disabled={files.length === 0}>
             {files.length} Dokument(e) hochladen & analysieren →
           </Button>
+
+          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textAlign: 'center', marginTop: 'var(--space-3)' }}>
+            Geschätzte Dauer: ~10–20 Sekunden pro Dokument
+          </p>
         </>
       )}
     </>
