@@ -10,7 +10,7 @@ export default function UploadPage() {
   const { user } = useAppUser();
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState('');
+  const [progress, setProgress] = useState({ step: '', detail: '' });
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef();
 
@@ -29,14 +29,12 @@ export default function UploadPage() {
   const handleUpload = async () => {
     if (!user || !antragId || files.length === 0) return;
     setUploading(true);
-    const uploadedDocs = [];
 
-    // 1. Dateien hochladen
-    for (let i = 0; i < files.length; i++) {
-      const f = files[i];
-      setProgress(`Datei ${i + 1} von ${files.length} wird hochgeladen...`);
+    // 1. Alle Dateien parallel hochladen
+    setProgress({ step: 'Hochladen', detail: `${files.length} Datei(en) werden hochgeladen...` });
+    const uploadPromises = files.map(async (f, i) => {
       try {
-        const path = `${user.id}/${antragId}/${Date.now()}_${f.name}`;
+        const path = `${user.id}/${antragId}/${Date.now()}_${i}_${f.name}`;
         const { error } = await supabase.storage.from('documents').upload(path, f.file);
         if (!error) {
           const { data: docData } = await supabase.from('documents').insert({
@@ -45,22 +43,25 @@ export default function UploadPage() {
             file_size: f.size, doc_type: 'other', ocr_status: 'pending',
           }).select().single();
           f.status = 'uploaded';
-          if (docData) uploadedDocs.push(docData);
-        } else { f.status = 'error'; }
-      } catch { f.status = 'error'; }
-      setFiles([...files]);
-    }
+          return docData;
+        }
+        f.status = 'error';
+        return null;
+      } catch { f.status = 'error'; return null; }
+    });
 
-    // 2. OCR für jedes Dokument triggern
-    setProgress('Dokumente werden analysiert...');
-    for (let i = 0; i < uploadedDocs.length; i++) {
-      setProgress(`Dokument ${i + 1} von ${uploadedDocs.length} wird analysiert...`);
-      await triggerOCR(uploadedDocs[i].id, antragId);
-    }
+    const uploadedDocs = (await Promise.all(uploadPromises)).filter(Boolean);
+    setFiles([...files]);
+
+    // 2. OCR parallel für alle Dokumente
+    setProgress({ step: 'Analyse', detail: 'KI analysiert Ihre Dokumente...' });
+    await Promise.all(
+      uploadedDocs.map(doc => triggerOCR(doc.id, antragId))
+    );
 
     // 3. Anspruch berechnen
-    setProgress('Anspruch wird berechnet...');
-    const result = await calculateBenefits(antragId);
+    setProgress({ step: 'Berechnung', detail: 'Anspruch wird berechnet...' });
+    await calculateBenefits(antragId);
 
     setUploading(false);
     navigate(`/app/antrag/${antragId}`);
@@ -76,18 +77,22 @@ export default function UploadPage() {
 
       {uploading ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-12)' }}>
-          <div style={{
-            width: 48, height: 48, border: '3px solid var(--ap-mint)',
-            borderTop: '3px solid var(--ap-dark)', borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite', margin: '0 auto var(--space-6)',
-          }} />
-          <p style={{ fontWeight: 600, color: 'var(--ap-dark)', marginBottom: 'var(--space-2)' }}>{progress}</p>
-          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>Bitte schließen Sie diese Seite nicht.</p>
+          <div style={{ width: 48, height: 48, border: '3px solid var(--ap-mint)', borderTop: '3px solid var(--ap-dark)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto var(--space-6)' }} />
+          <p style={{ fontWeight: 600, color: 'var(--ap-dark)', marginBottom: 'var(--space-1)', fontSize: 'var(--text-lg)' }}>{progress.step}</p>
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>{progress.detail}</p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
+            {['Hochladen', 'Analyse', 'Berechnung'].map((s, i) => (
+              <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--text-xs)', color: s === progress.step ? 'var(--ap-dark)' : 'var(--color-text-muted)' }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: s === progress.step ? 'var(--ap-gold)' : ['Hochladen', 'Analyse', 'Berechnung'].indexOf(s) < ['Hochladen', 'Analyse', 'Berechnung'].indexOf(progress.step) ? 'var(--ap-dark)' : 'var(--ap-mint)' }} />
+                {s}
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginTop: 'var(--space-6)' }}>Bitte schließen Sie diese Seite nicht.</p>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       ) : (
         <>
-          {/* Drop Zone */}
           <div
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
@@ -108,24 +113,14 @@ export default function UploadPage() {
               onChange={(e) => handleFiles(e.target.files)} />
           </div>
 
-          {/* Camera Button */}
           <button onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment'; input.onchange = (e) => handleFiles(e.target.files); input.click(); }}
-            style={{
-              width: '100%', padding: 'var(--space-4)', marginBottom: 'var(--space-6)',
-              background: 'var(--color-bg-card)', border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)',
-              fontSize: 'var(--text-base)', color: 'var(--ap-dark)', fontWeight: 500,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            }}>
+            style={{ width: '100%', padding: 'var(--space-4)', marginBottom: 'var(--space-6)', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 'var(--text-base)', color: 'var(--ap-dark)', fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             📸 Foto aufnehmen
           </button>
 
-          {/* File List */}
           {files.length > 0 && (
             <div style={{ marginBottom: 'var(--space-6)' }}>
-              <h3 style={{ marginBottom: 'var(--space-3)', fontSize: 'var(--text-base)' }}>
-                {files.length} Datei(en) ausgewählt
-              </h3>
+              <h3 style={{ marginBottom: 'var(--space-3)', fontSize: 'var(--text-base)' }}>{files.length} Datei(en) ausgewählt</h3>
               {files.map((f, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3)', borderBottom: '1px solid var(--color-border-light)' }}>
                   {f.preview && <img src={f.preview} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 'var(--radius-sm)' }} alt="" />}
