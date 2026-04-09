@@ -5,6 +5,7 @@ import { useAppUser } from '../../utils/auth.jsx';
 import { supabase } from '../../utils/supabase.js';
 import { triggerOCR, calculateBenefits } from '../../utils/api.js';
 import { navigate } from '../../utils/router.jsx';
+import { compressImage } from '../../utils/imageResize.js';
 
 export default function UploadPage() {
   const { user } = useAppUser();
@@ -30,17 +31,19 @@ export default function UploadPage() {
     if (!user || !antragId || files.length === 0) return;
     setUploading(true);
 
-    // 1. Alle Dateien parallel hochladen
-    setProgress({ step: 'Hochladen', detail: `${files.length} Datei(en) werden hochgeladen...` });
+    // 1. Bilder komprimieren + parallel hochladen
+    setProgress({ step: 'Hochladen', detail: `${files.length} Datei(en) werden komprimiert & hochgeladen...` });
     const uploadPromises = files.map(async (f, i) => {
       try {
+        // Bilder komprimieren (4MB → ~200KB)
+        const compressed = await compressImage(f.file);
         const path = `${user.id}/${antragId}/${Date.now()}_${i}_${f.name}`;
-        const { error } = await supabase.storage.from('documents').upload(path, f.file);
+        const { error } = await supabase.storage.from('documents').upload(path, compressed);
         if (!error) {
           const { data: docData } = await supabase.from('documents').insert({
             application_id: antragId, clerk_id: user.id,
             file_name: f.name, file_path: path,
-            file_size: f.size, doc_type: 'other', ocr_status: 'pending',
+            file_size: compressed.size, doc_type: 'other', ocr_status: 'pending',
           }).select().single();
           f.status = 'uploaded';
           return docData;
