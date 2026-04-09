@@ -1,5 +1,6 @@
 import Logo from '../shared/Logo';
 import { Link } from '../../utils/router';
+import { resetCookieConsent } from '../shared/CookieBanner.jsx';
 
 const FOOTER_LINKS = {
   'Service': [
@@ -19,6 +20,7 @@ const FOOTER_LINKS = {
     { label: 'AGB', path: '/agb' },
     { label: 'Impressum', path: '/impressum' },
     { label: 'Widerruf', path: '/widerruf' },
+    { label: 'Cookie-Einstellungen', action: 'cookies' },
   ],
 };
 
@@ -64,13 +66,23 @@ export default function Footer() {
               </h4>
               <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                 {links.map((link) => (
-                  <li key={link.path}>
-                    <Link to={link.path} style={{
-                      fontSize: 'var(--text-sm)', color: 'var(--ap-sage)',
-                      transition: 'color var(--transition-fast)',
-                    }}>
-                      {link.label}
-                    </Link>
+                  <li key={link.label}>
+                    {link.action === 'cookies' ? (
+                      <button onClick={resetCookieConsent} style={{
+                        background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                        fontSize: 'var(--text-sm)', color: 'var(--ap-sage)',
+                        fontFamily: 'var(--font-body)', transition: 'color var(--transition-fast)',
+                      }}>
+                        {link.label}
+                      </button>
+                    ) : (
+                      <Link to={link.path} style={{
+                        fontSize: 'var(--text-sm)', color: 'var(--ap-sage)',
+                        transition: 'color var(--transition-fast)',
+                      }}>
+                        {link.label}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>

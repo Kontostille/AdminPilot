@@ -1,4 +1,5 @@
 import { SEOHead } from '../../components/shared/index.jsx';
+import { resetCookieConsent } from '../../components/shared/CookieBanner.jsx';
 import { COMPANY } from '../../data/siteConfig.js';
 export default function DatenschutzPage() {
   return (<><SEOHead title="Datenschutzerklärung" noindex />
@@ -31,7 +32,10 @@ export default function DatenschutzPage() {
         <p>Sie haben das Recht auf: Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung der Verarbeitung (Art. 18), Datenübertragbarkeit (Art. 20), Widerspruch (Art. 21), Beschwerde bei einer Aufsichtsbehörde.</p>
         <h2>8. Cookies</h2>
         <p>AdminPilot verwendet keine Cookies für Tracking-Zwecke. Plausible Analytics arbeitet vollständig ohne Cookies. Technisch notwendige Cookies (z.B. für die Authentifizierung) werden nur mit Ihrer Einwilligung gesetzt.</p>
-        <h2>9. Kontakt für Datenschutzanfragen</h2>
+        <h2>9. Cookie-Einstellungen ändern</h2>
+        <p>Sie können Ihre Cookie-Einstellungen jederzeit anpassen:</p>
+        <button onClick={resetCookieConsent} style={{ padding: "8px 20px", background: "var(--ap-dark)", color: "#FFF", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: "var(--text-sm)", fontWeight: 600 }}>Cookie-Einstellungen öffnen</button>
+        <h2>10. Kontakt für Datenschutzanfragen</h2>
         <p>{COMPANY.email}</p>
       </div>
     </div></section>

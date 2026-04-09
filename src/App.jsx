@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { getPath, matchRoute } from './utils/router';
 import { PublicLayout, AppLayout, AuthLayout } from './components/layout/Layouts';
 import { ProtectedRoute } from './utils/auth.jsx';
+import CookieBanner from './components/shared/CookieBanner.jsx';
 
 // === Public Pages ===
 import HomePage from './pages/public/HomePage';
@@ -108,34 +109,41 @@ export default function App() {
     window.scrollTo(0, 0);
   }, [path]);
 
+  // Determine which page and layout to render
+  let content = null;
+
   // 1. Check static routes
   if (PUBLIC_ROUTES[path]) {
     const Page = PUBLIC_ROUTES[path];
-    return <PublicLayout><Page /></PublicLayout>;
-  }
-
-  if (APP_ROUTES[path]) {
+    content = <PublicLayout><Page /></PublicLayout>;
+  } else if (APP_ROUTES[path]) {
     const Page = APP_ROUTES[path];
-    return <ProtectedRoute><AppLayout><Page /></AppLayout></ProtectedRoute>;
-  }
-
-  if (AUTH_ROUTES[path]) {
+    content = <ProtectedRoute><AppLayout><Page /></AppLayout></ProtectedRoute>;
+  } else if (AUTH_ROUTES[path]) {
     const Page = AUTH_ROUTES[path];
-    return <AuthLayout><Page /></AuthLayout>;
-  }
-
-  // 2. Check dynamic routes
-  for (const route of DYNAMIC_ROUTES) {
-    const params = matchRoute(route.pattern, path);
-    if (params) {
-      const Page = route.component;
-      if (route.layout === 'app') {
-        return <ProtectedRoute><AppLayout><Page params={params} /></AppLayout></ProtectedRoute>;
+    content = <AuthLayout><Page /></AuthLayout>;
+  } else {
+    // 2. Check dynamic routes
+    for (const route of DYNAMIC_ROUTES) {
+      const params = matchRoute(route.pattern, path);
+      if (params) {
+        const Page = route.component;
+        if (route.layout === 'app') {
+          content = <ProtectedRoute><AppLayout><Page params={params} /></AppLayout></ProtectedRoute>;
+        } else {
+          content = <PublicLayout><Page params={params} /></PublicLayout>;
+        }
+        break;
       }
-      return <PublicLayout><Page params={params} /></PublicLayout>;
     }
+    // 3. 404
+    if (!content) content = <PublicLayout><NotFoundPage /></PublicLayout>;
   }
 
-  // 3. 404
-  return <PublicLayout><NotFoundPage /></PublicLayout>;
+  return (
+    <>
+      {content}
+      <CookieBanner />
+    </>
+  );
 }
