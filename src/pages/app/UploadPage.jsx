@@ -23,11 +23,13 @@ export default function UploadPage() {
   const [percent, setPercent] = useState(0);
   const [stepLabel, setStepLabel] = useState('');
   const [error, setError] = useState('');
+  const [done, setDone] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef();
 
   const params = new URLSearchParams(window.location.search);
   const antragId = params.get('antrag');
+  const antragIdRef = useRef(antragId); // Backup falls URL sich ändert
 
   const handleFiles = (newFiles) => {
     setFiles(prev => [...prev, ...Array.from(newFiles).map(f => ({
@@ -106,8 +108,8 @@ export default function UploadPage() {
       });
 
       setPercent(100);
-      setStepLabel('Fertig!');
-      setTimeout(() => navigate(`/app/antrag/${antragId}`), 500);
+      setStepLabel('Analyse abgeschlossen!');
+      setDone(true);
 
     } catch (err) {
       console.error('Upload error:', err);
@@ -120,6 +122,12 @@ export default function UploadPage() {
     <>
       <SEOHead title="Dokumente hochladen" noindex />
       <h1 style={{ fontSize: 'var(--text-2xl)', marginBottom: 'var(--space-2)' }}>Dokumente hochladen</h1>
+      {!antragId && (
+        <div style={{ padding: 'var(--space-6)', background: '#FFF5F5', borderRadius: 'var(--radius-md)', border: '1px solid #E8A3A3', marginBottom: 'var(--space-4)' }}>
+          <p style={{ color: 'var(--ap-error, #C0392B)', margin: 0 }}>Kein Antrag ausgewählt. Bitte starten Sie einen neuen Antrag.</p>
+          <Button variant="ghost" size="small" to="/app/neuer-antrag" style={{ marginTop: 'var(--space-3)' }}>Neuen Antrag starten →</Button>
+        </div>
+      )}
       <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-6)' }}>
         Fotografieren oder laden Sie Ihre Dokumente hoch. Unsere KI analysiert sie automatisch.
       </p>
@@ -155,8 +163,14 @@ export default function UploadPage() {
 
           {percent === 100 && (
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 40, marginBottom: 'var(--space-2)' }}>✅</div>
-              <p style={{ fontWeight: 600, color: 'var(--ap-dark)' }}>Analyse abgeschlossen</p>
+              <div style={{ fontSize: 48, marginBottom: 'var(--space-4)' }}>✅</div>
+              <p style={{ fontWeight: 600, color: 'var(--ap-dark)', fontSize: 'var(--text-lg)', marginBottom: 'var(--space-6)' }}>Analyse abgeschlossen!</p>
+              <Button variant="primary" size="large" to={`/app/antrag/${antragIdRef.current}`}>
+                Ergebnis ansehen →
+              </Button>
+              <div style={{ marginTop: 'var(--space-3)' }}>
+                <Button variant="ghost" size="small" to="/app">Zurück zum Dashboard</Button>
+              </div>
             </div>
           )}
 
