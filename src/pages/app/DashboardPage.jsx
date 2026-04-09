@@ -35,14 +35,17 @@ function StatCard({ value, label, accent }) {
   );
 }
 
-function ApplicationCard({ app }) {
+function ApplicationCard({ app, onDelete }) {
   const status = STATUS_CONFIG[app.status] || STATUS_CONFIG.draft;
   const isActionNeeded = ['documents_pending', 'payment_pending', 'signature_pending'].includes(app.status);
 
-  const actionUrl = app.status === 'documents_pending' ? `/app/upload?antrag=${app.id}`
-    : app.status === 'payment_pending' ? `/app/zahlung/${app.id}`
-    : app.status === 'signature_pending' ? `/app/signatur/${app.id}`
-    : `/app/antrag/${app.id}`;
+  const handleDelete = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.confirm(`Antrag "${app.leistung_name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) {
+      onDelete(app.id);
+    }
+  };
 
   return (
     <Link to={`/app/antrag/${app.id}`} style={{
@@ -67,6 +70,15 @@ function ApplicationCard({ app }) {
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>pro Monat</div>
           </div>
         )}
+        {/* Delete Button */}
+        <button onClick={handleDelete} title="Antrag löschen" style={{
+          background: 'none', border: 'none', cursor: 'pointer', padding: 6,
+          color: 'var(--color-text-muted)', fontSize: 16, borderRadius: 'var(--radius-sm)',
+          transition: 'color var(--transition-fast)', flexShrink: 0,
+        }}
+          onMouseEnter={e => e.currentTarget.style.color = 'var(--ap-error, #C0392B)'}
+          onMouseLeave={e => e.currentTarget.style.color = 'var(--color-text-muted)'}
+        >✕</button>
       </div>
 
       {/* Status Bar */}
@@ -113,6 +125,14 @@ export default function DashboardPage() {
     }
     loadApps();
   }, [user]);
+
+  const deleteApplication = async (appId) => {
+    // Dokumente, Status-Updates und Payments werden durch CASCADE gelöscht
+    const { error } = await supabase.from('applications').delete().eq('id', appId);
+    if (!error) {
+      setApplications(prev => prev.filter(a => a.id !== appId));
+    }
+  };
 
   if (loading) {
     return (
@@ -209,7 +229,7 @@ export default function DashboardPage() {
                 Aktion erforderlich
               </h2>
               <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
-                {pendingApps.map(app => <ApplicationCard key={app.id} app={app} />)}
+                {pendingApps.map(app => <ApplicationCard key={app.id} app={app} onDelete={deleteApplication} />)}
               </div>
             </div>
           )}
@@ -221,7 +241,7 @@ export default function DashboardPage() {
             </h2>
             <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
               {applications.filter(a => !pendingApps.includes(a)).map(app => (
-                <ApplicationCard key={app.id} app={app} />
+                <ApplicationCard key={app.id} app={app} onDelete={deleteApplication} />
               ))}
             </div>
           </div>
