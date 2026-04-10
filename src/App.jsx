@@ -40,6 +40,7 @@ import StatusPage from './pages/app/StatusPage';
 import DokumentePage from './pages/app/DokumentePage';
 import ProfilPage from './pages/app/ProfilPage';
 import AppHilfePage from './pages/app/AppHilfePage';
+import ZahlungErfolgreichPage from './pages/app/ZahlungErfolgreichPage';
 
 // === System Pages ===
 import LoginPage from './pages/system/LoginPage';
@@ -78,6 +79,7 @@ const APP_ROUTES = {
   '/app/dokumente': DokumentePage,
   '/app/profil': ProfilPage,
   '/app/hilfe': AppHilfePage,
+  '/app/zahlung-erfolgreich': ZahlungErfolgreichPage,
 };
 
 const AUTH_ROUTES = {

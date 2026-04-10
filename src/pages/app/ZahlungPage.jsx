@@ -9,6 +9,8 @@ export default function ZahlungPage({ params }) {
   const { user } = useAppUser();
   const [app, setApp] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [paying, setPaying] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!user || !params?.id) return;
@@ -22,19 +24,33 @@ export default function ZahlungPage({ params }) {
   const monthlyFee = Math.round(Number(app.estimated_monthly) * PRICING.successFeePercent / 100);
 
   const handlePayment = async () => {
-    // TODO: Stripe Checkout Session erstellen
-    // Für jetzt: Status direkt auf payment_pending setzen
-    await supabase.from('applications')
-      .update({ status: 'payment_pending', updated_at: new Date().toISOString() })
-      .eq('id', app.id);
-    await supabase.from('status_updates').insert({
-      application_id: app.id,
-      status: 'payment_pending',
-      message: 'Zahlung wird verarbeitet.',
-    });
-    // Redirect zu Stripe (placeholder – wird durch echten Stripe Checkout ersetzt)
-    alert('Stripe-Integration wird in Kürze aktiviert. Der Antrag wurde als "Zahlung offen" markiert.');
-    window.location.href = `/app/antrag/${app.id}`;
+    setPaying(true);
+    setError('');
+
+    try {
+      const res = await fetch('/api/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          application_id: app.id,
+          leistung_name: app.leistung_name,
+          estimated_monthly: app.estimated_monthly,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.success && data.checkout_url) {
+        // Redirect zu Stripe Checkout
+        window.location.href = data.checkout_url;
+      } else {
+        setError(data.error || 'Zahlung konnte nicht gestartet werden.');
+        setPaying(false);
+      }
+    } catch (err) {
+      setError('Verbindungsfehler. Bitte versuchen Sie es erneut.');
+      setPaying(false);
+    }
   };
 
   return (
@@ -58,9 +74,9 @@ export default function ZahlungPage({ params }) {
             <span style={{ color: '#8AA494' }}>Grundgebühr (einmalig)</span>
             <span style={{ fontWeight: 600, color: '#1A3C2B' }}>{PRICING.baseFeeLabel}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
             <span style={{ color: '#8AA494' }}>Erfolgsgebühr (nur bei Bewilligung)</span>
-            <span style={{ fontWeight: 500, color: '#1A3C2B' }}>~{monthlyFee} €/Monat im 1. Jahr</span>
+            <span style={{ fontWeight: 500, color: '#1A3C2B' }}>~{monthlyFee} €/Mon. (1. Jahr)</span>
           </div>
         </div>
 
@@ -87,13 +103,23 @@ export default function ZahlungPage({ params }) {
           ))}
         </div>
 
+        {/* Error */}
+        {error && (
+          <div style={{ padding: 12, background: '#FFF5F5', border: '1px solid #E8A3A3', borderRadius: 8, marginBottom: 16 }}>
+            <p style={{ color: '#C0392B', fontSize: 13, margin: 0 }}>{error}</p>
+          </div>
+        )}
+
         {/* Zahlungsbutton */}
-        <button onClick={handlePayment} style={{
-          width: '100%', padding: 16, background: '#E2C044', color: '#1A3C2B',
+        <button onClick={handlePayment} disabled={paying} style={{
+          width: '100%', padding: 16,
+          background: paying ? '#C8DAD0' : '#E2C044',
+          color: paying ? '#8AA494' : '#1A3C2B',
           fontWeight: 600, fontSize: 16, borderRadius: 8, border: 'none',
-          cursor: 'pointer', marginBottom: 12,
+          cursor: paying ? 'wait' : 'pointer', marginBottom: 12,
+          fontFamily: 'var(--font-body)',
         }}>
-          Jetzt sicher bezahlen – {PRICING.baseFeeLabel} →
+          {paying ? 'Weiterleitung zu Stripe...' : `Jetzt sicher bezahlen – ${PRICING.baseFeeLabel} →`}
         </button>
 
         <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 24 }}>
@@ -102,13 +128,11 @@ export default function ZahlungPage({ params }) {
           ))}
         </div>
 
-        {/* Sicherheit */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', marginBottom: 24 }}>
           <span style={{ fontSize: 14 }}>🔒</span>
           <span style={{ fontSize: 12, color: '#8AA494' }}>Verschlüsselte Zahlung über Stripe. Ihre Daten sind sicher.</span>
         </div>
 
-        {/* Zurück */}
         <div style={{ textAlign: 'center' }}>
           <a href={`/app/antrag/${app.id}`} style={{ color: '#8AA494', fontSize: 13, textDecoration: 'underline' }}>← Zurück zur Analyse</a>
         </div>
