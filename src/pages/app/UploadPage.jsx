@@ -3,26 +3,7 @@ import { SEOHead } from '../../components/shared/index.jsx';
 import { useAppUser } from '../../utils/auth.jsx';
 import { supabase } from '../../utils/supabase.js';
 import { compressImage } from '../../utils/imageResize.js';
-
-/*
-  State Machine:
-  idle → uploading → analyzing → calculating → done
-                                                  ↘ error (kann von überall kommen)
-  
-  Jede Phase fängt eigene Fehler ab.
-  Upload schlägt nie fehl (Supabase Storage ist schnell).
-  OCR kann fehlschlagen → Dokument wird als 'pending' gespeichert, Flow geht weiter.
-  Calculate kann fehlschlagen → Ergebnis trotzdem zeigen.
-*/
-
-const PHASES = {
-  idle: 'idle',
-  uploading: 'uploading',
-  analyzing: 'analyzing',
-  calculating: 'calculating',
-  done: 'done',
-  error: 'error',
-};
+import { calculateBenefitsFromDocs } from '../../utils/calculateBenefits.js';
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -33,124 +14,40 @@ function fileToBase64(file) {
   });
 }
 
-// === PROGRESS SCREEN ===
-function ProgressScreen({ phase, percent, stepLabel, ocrSuccessCount, ocrTotalCount }) {
-  return (
-    <div style={{ padding: 'var(--space-8)', maxWidth: 500, margin: '0 auto' }}>
-      {/* Progress Bar */}
-      <div style={{ background: 'var(--ap-mint)', borderRadius: 100, height: 12, overflow: 'hidden', marginBottom: 16 }}>
-        <div style={{ height: '100%', borderRadius: 100, background: 'var(--ap-gold)', width: `${percent}%`, transition: 'width 0.4s ease-out' }} />
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 32 }}>
-        <span style={{ fontSize: 14, color: '#8AA494' }}>{stepLabel}</span>
-        <span style={{ fontSize: 18, fontWeight: 700, color: '#1A3C2B', fontFamily: 'var(--font-mono)' }}>{percent}%</span>
-      </div>
+/* ============================================================
+   PHASE-BASIERTE ARCHITEKTUR
+   
+   idle → uploading → analyzing → saving → done
+   Jeder Fehler → error screen (nie zurück zum Formular)
+   OCR-Fehler pro Dokument → überspringen, weitermachen
+   ============================================================ */
 
-      {/* Phase Indicators */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginBottom: 32 }}>
-        {[
-          { key: 'uploading', label: 'Hochladen' },
-          { key: 'analyzing', label: 'KI-Analyse' },
-          { key: 'calculating', label: 'Berechnung' },
-        ].map(({ key, label }) => {
-          const order = ['uploading', 'analyzing', 'calculating'];
-          const currentIdx = order.indexOf(phase);
-          const thisIdx = order.indexOf(key);
-          const isDone = thisIdx < currentIdx;
-          const isCurrent = key === phase;
-          return (
-            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-              <div style={{
-                width: 10, height: 10, borderRadius: '50%',
-                background: isDone ? '#1A3C2B' : isCurrent ? '#E2C044' : '#C8DAD0',
-              }} />
-              <span style={{ color: isCurrent ? '#1A3C2B' : '#8AA494', fontWeight: isCurrent ? 600 : 400 }}>{label}</span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Spinner */}
-      <div style={{ textAlign: 'center' }}>
-        <div style={{
-          width: 40, height: 40, border: '3px solid #C8DAD0', borderTopColor: '#1A3C2B',
-          borderRadius: '50%', margin: '0 auto 16px',
-          animation: 'apspin 0.7s linear infinite',
-        }} />
-        <p style={{ fontSize: 12, color: '#8AA494' }}>Bitte Seite nicht schließen</p>
-      </div>
-      <style>{`@keyframes apspin { to { transform: rotate(360deg) } }`}</style>
-    </div>
-  );
-}
-
-// === DONE SCREEN ===
-function DoneScreen({ antragId, ocrSuccessCount, totalFiles }) {
-  const allSuccess = ocrSuccessCount === totalFiles;
-  return (
-    <div style={{ textAlign: 'center', padding: '64px 16px' }}>
-      <div style={{ fontSize: 56, marginBottom: 16 }}>{allSuccess ? '✅' : '⚠️'}</div>
-      <h2 style={{ fontSize: 24, fontWeight: 600, color: '#1A3C2B', marginBottom: 8 }}>
-        {allSuccess ? 'Analyse abgeschlossen!' : 'Upload abgeschlossen'}
-      </h2>
-      <p style={{ color: '#8AA494', marginBottom: 32, maxWidth: 400, margin: '0 auto 32px', lineHeight: 1.6 }}>
-        {allSuccess
-          ? 'Ihre Dokumente wurden erfolgreich analysiert. Sehen Sie sich jetzt Ihr Ergebnis an.'
-          : `${ocrSuccessCount} von ${totalFiles} Dokument(en) konnten analysiert werden. Sie können die Analyse später erneut starten.`
-        }
-      </p>
-      <a href={`/app/antrag/${antragId}`} style={{
-        display: 'inline-block', background: '#E2C044', color: '#1A3C2B', fontWeight: 600,
-        fontSize: 18, padding: '14px 40px', borderRadius: 8, textDecoration: 'none',
-        fontFamily: 'var(--font-body)',
-      }}>
-        Ergebnis ansehen →
-      </a>
-      <div style={{ marginTop: 16 }}>
-        <a href="/app" style={{ color: '#8AA494', fontSize: 14, textDecoration: 'underline' }}>
-          Zurück zum Dashboard
-        </a>
-      </div>
-    </div>
-  );
-}
-
-// === ERROR SCREEN ===
-function ErrorScreen({ message, onRetry }) {
-  return (
-    <div style={{ textAlign: 'center', padding: '64px 16px' }}>
-      <div style={{ fontSize: 48, marginBottom: 16 }}>❌</div>
-      <h2 style={{ fontSize: 20, color: '#1A3C2B', marginBottom: 8 }}>Etwas ist schiefgelaufen</h2>
-      <p style={{ color: '#8AA494', marginBottom: 24, maxWidth: 400, margin: '0 auto 24px', fontSize: 14, lineHeight: 1.6 }}>{message}</p>
-      <button onClick={onRetry} style={{
-        background: '#1A3C2B', color: '#FFF', padding: '12px 32px', borderRadius: 8,
-        border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 14,
-        fontFamily: 'var(--font-body)',
-      }}>
-        Erneut versuchen
-      </button>
-      <div style={{ marginTop: 12 }}>
-        <a href="/app" style={{ color: '#8AA494', fontSize: 14, textDecoration: 'underline' }}>Zum Dashboard</a>
-      </div>
-    </div>
-  );
-}
-
-// === MAIN COMPONENT ===
 export default function UploadPage() {
   const { user } = useAppUser();
+
+  // State
   const [files, setFiles] = useState([]);
-  const [phase, setPhase] = useState(PHASES.idle);
+  const [phase, setPhase] = useState('idle'); // idle | uploading | analyzing | saving | done | error
   const [percent, setPercent] = useState(0);
   const [stepLabel, setStepLabel] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const [ocrSuccessCount, setOcrSuccessCount] = useState(0);
+  const [successCount, setSuccessCount] = useState(0);
+  const [estimatedResult, setEstimatedResult] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef(null);
 
-  // AntragId aus URL lesen und in ref speichern (überlebt Re-Renders)
-  const antragIdFromUrl = new URLSearchParams(window.location.search).get('antrag');
-  const antragIdRef = useRef(antragIdFromUrl);
+  // AntragId aus URL – in ref speichern damit es State-Changes überlebt
+  const urlAntragId = new URLSearchParams(window.location.search).get('antrag');
+  const antragId = useRef(urlAntragId);
+
+  // Utility: Fortschritt aktualisieren
+  const progressRef = useRef({ step: 0, total: 1 });
+  const advance = (label) => {
+    progressRef.current.step++;
+    const pct = Math.min(95, Math.round((progressRef.current.step / progressRef.current.total) * 100));
+    setPercent(pct);
+    setStepLabel(label);
+  };
 
   const handleFiles = useCallback((newFiles) => {
     setFiles(prev => [...prev, ...Array.from(newFiles).map(f => ({
@@ -159,191 +56,319 @@ export default function UploadPage() {
     }))]);
   }, []);
 
+  // ===== HAUPTLOGIK =====
   const handleUpload = async () => {
-    const aid = antragIdRef.current;
+    const aid = antragId.current;
     if (!user || !aid || files.length === 0) return;
 
-    const totalSteps = 1 + files.length + 1; // compress + N×OCR + calculate
-    let currentStep = 0;
-    const advance = (label) => {
-      currentStep++;
-      setPercent(Math.min(99, Math.round((currentStep / totalSteps) * 100)));
-      setStepLabel(label);
-    };
+    progressRef.current = { step: 0, total: files.length + 2 };
 
     try {
-      // === PHASE 1: Upload ===
-      setPhase(PHASES.uploading);
-      advance('Bilder werden komprimiert & hochgeladen...');
+      // === PHASE 1: Komprimieren & Hochladen ===
+      setPhase('uploading');
+      advance('Bilder werden komprimiert...');
 
-      const compressed = await Promise.all(files.map(f => compressImage(f.file)));
+      const compressed = [];
+      for (const f of files) {
+        const comp = await compressImage(f.file);
+        compressed.push(comp);
+      }
+
+      // In Supabase Storage hochladen
       const uploadedDocs = [];
-
       for (let i = 0; i < compressed.length; i++) {
-        const compFile = compressed[i];
         const storagePath = `${user.id}/${aid}/${Date.now()}_${i}_${files[i].name}`;
-
-        // Upload zu Supabase Storage
-        const { error: storageErr } = await supabase.storage.from('documents').upload(storagePath, compFile);
+        const { error: storageErr } = await supabase.storage
+          .from('documents')
+          .upload(storagePath, compressed[i]);
 
         if (!storageErr) {
-          // Dokument-Record in DB erstellen
-          const { data: docRecord } = await supabase.from('documents').insert({
-            application_id: aid, clerk_id: user.id,
-            file_name: files[i].name, file_path: storagePath,
-            file_size: compFile.size, doc_type: 'other', ocr_status: 'pending',
-            ocr_result: {},
-          }).select('id').single();
+          const { data: docRecord } = await supabase
+            .from('documents')
+            .insert({
+              application_id: aid,
+              clerk_id: user.id,
+              file_name: files[i].name,
+              file_path: storagePath,
+              file_size: compressed[i].size,
+              doc_type: 'other',
+              ocr_status: 'pending',
+              ocr_result: {},
+            })
+            .select('id')
+            .single();
 
           if (docRecord) {
-            uploadedDocs.push({ id: docRecord.id, file: compFile, name: files[i].name });
+            uploadedDocs.push({
+              dbId: docRecord.id,
+              compressedFile: compressed[i],
+              name: files[i].name,
+            });
           }
         }
       }
 
       if (uploadedDocs.length === 0) {
-        throw new Error('Keine Dateien konnten hochgeladen werden. Bitte prüfen Sie Ihre Internetverbindung.');
+        throw new Error('Upload fehlgeschlagen. Bitte Internetverbindung prüfen.');
       }
 
-      // Antrag-Status aktualisieren
-      await supabase.from('applications').update({ status: 'analyzing' }).eq('id', aid);
+      // Status updaten
+      await supabase.from('applications')
+        .update({ status: 'analyzing' })
+        .eq('id', aid);
 
       // === PHASE 2: OCR Analyse ===
-      setPhase(PHASES.analyzing);
-      let successCount = 0;
+      setPhase('analyzing');
+      const ocrResults = [];
 
       for (let i = 0; i < uploadedDocs.length; i++) {
         const doc = uploadedDocs[i];
-        advance(`KI analysiert ${doc.name} (${i + 1}/${uploadedDocs.length})...`);
+        advance(`KI analysiert: ${doc.name} (${i + 1}/${uploadedDocs.length})`);
 
         try {
-          const base64 = await fileToBase64(doc.file);
-          const mediaType = doc.file.type || 'image/jpeg';
+          // Base64 konvertieren
+          const base64 = await fileToBase64(doc.compressedFile);
+          const mediaType = doc.compressedFile.type || 'image/jpeg';
 
+          // OCR API aufrufen mit 28s Client-Timeout
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 28000); // 28s timeout clientseitig
+          const timeoutId = setTimeout(() => controller.abort(), 28000);
 
-          const ocrRes = await fetch('/api/ocr-analyze', {
+          const response = await fetch('/api/ocr-analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ base64, media_type: mediaType, file_name: doc.name }),
+            body: JSON.stringify({
+              base64: base64,
+              media_type: mediaType,
+              file_name: doc.name,
+            }),
             signal: controller.signal,
           });
 
-          clearTimeout(timeout);
-          const ocrData = await ocrRes.json();
+          clearTimeout(timeoutId);
+
+          const ocrData = await response.json();
 
           if (ocrData.success) {
-            // OCR erfolgreich → Dokument updaten
-            await supabase.from('documents').update({
-              doc_type: ocrData.doc_type || 'other',
-              ocr_status: 'complete',
-              ocr_result: { doc_type: ocrData.doc_type, extracted: ocrData.extracted, processed_at: new Date().toISOString() },
-            }).eq('id', doc.id);
-            successCount++;
+            // Erfolgreich → DB updaten
+            await supabase.from('documents')
+              .update({
+                doc_type: ocrData.doc_type || 'other',
+                ocr_status: 'complete',
+                ocr_result: {
+                  doc_type: ocrData.doc_type,
+                  extracted: ocrData.extracted,
+                  processed_at: new Date().toISOString(),
+                },
+              })
+              .eq('id', doc.dbId);
+
+            ocrResults.push(ocrData);
           } else {
-            // OCR fehlgeschlagen → als failed markieren, aber weitermachen
-            await supabase.from('documents').update({
-              ocr_status: 'failed',
-              ocr_result: { error: ocrData.error || 'OCR failed' },
-            }).eq('id', doc.id);
+            // API hat geantwortet aber OCR fehlgeschlagen
+            console.warn(`OCR failed for ${doc.name}:`, ocrData.error);
+            await supabase.from('documents')
+              .update({
+                ocr_status: 'failed',
+                ocr_result: { error: ocrData.error || 'Unknown' },
+              })
+              .eq('id', doc.dbId);
           }
         } catch (ocrErr) {
-          // Timeout oder Netzwerkfehler → als failed markieren, aber weitermachen
-          console.warn(`OCR failed for ${doc.name}:`, ocrErr.message);
-          await supabase.from('documents').update({
-            ocr_status: 'failed',
-            ocr_result: { error: ocrErr.name === 'AbortError' ? 'Timeout (zu langsam)' : ocrErr.message },
-          }).eq('id', doc.id);
+          // Timeout oder Netzwerkfehler → als failed markieren, WEITERMACHEN
+          const errMsg = ocrErr.name === 'AbortError' ? 'Timeout' : ocrErr.message;
+          console.warn(`OCR exception for ${doc.name}:`, errMsg);
+          await supabase.from('documents')
+            .update({
+              ocr_status: 'failed',
+              ocr_result: { error: errMsg },
+            })
+            .eq('id', doc.dbId);
         }
       }
 
-      setOcrSuccessCount(successCount);
+      setSuccessCount(ocrResults.length);
 
-      // === PHASE 3: Berechnung ===
-      setPhase(PHASES.calculating);
+      // === PHASE 3: Berechnung (CLIENT-SEITIG, kein API-Call!) ===
+      setPhase('saving');
       advance('Anspruch wird berechnet...');
 
-      if (successCount > 0) {
-        try {
-          await fetch('/api/calculate-benefits', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ application_id: aid }),
-          });
-        } catch (calcErr) {
-          console.warn('Calculation failed:', calcErr.message);
-          // Nicht schlimm – Antrag existiert trotzdem
-        }
-      } else {
-        // Keine OCR-Daten → Status trotzdem updaten
-        await supabase.from('applications').update({ status: 'analysis_complete', estimated_monthly: 0, confidence: 'niedrig' }).eq('id', aid);
+      // Leistung-ID aus dem Antrag holen
+      const { data: appData } = await supabase
+        .from('applications')
+        .select('leistung_id')
+        .eq('id', aid)
+        .single();
+
+      let result = { estimated_monthly: 0, confidence: 'niedrig', details: {} };
+
+      if (ocrResults.length > 0 && appData) {
+        // Lokal berechnen – kein API-Call!
+        result = calculateBenefitsFromDocs(appData.leistung_id, ocrResults);
       }
 
-      // Status-Update
-      await supabase.from('status_updates').insert({
-        application_id: aid,
-        status: 'analysis_complete',
-        message: `${successCount} von ${uploadedDocs.length} Dokument(en) analysiert.`,
-      }).catch(() => {}); // Ignoriere Fehler
+      setEstimatedResult(result);
 
+      // Ergebnis in DB speichern
+      await supabase.from('applications')
+        .update({
+          status: 'analysis_complete',
+          estimated_monthly: result.estimated_monthly,
+          confidence: result.confidence,
+          notes: JSON.stringify(result.details),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', aid);
+
+      // Status-Update für Timeline
+      await supabase.from('status_updates')
+        .insert({
+          application_id: aid,
+          status: 'analysis_complete',
+          message: ocrResults.length > 0
+            ? `${ocrResults.length} Dokument(e) analysiert. Geschätzter Anspruch: ~${result.estimated_monthly} €/Monat.`
+            : `Upload abgeschlossen. Dokumente konnten nicht automatisch analysiert werden.`,
+        });
+
+      // === FERTIG ===
       setPercent(100);
-      setPhase(PHASES.done);
+      setPhase('done');
 
     } catch (err) {
-      console.error('Upload error:', err);
-      setErrorMsg(err.message || 'Ein unbekannter Fehler ist aufgetreten.');
-      setPhase(PHASES.error);
+      console.error('Upload flow error:', err);
+      setErrorMsg(err.message || 'Ein Fehler ist aufgetreten.');
+      setPhase('error');
     }
   };
 
-  const resetToIdle = () => {
-    setPhase(PHASES.idle);
-    setPercent(0);
-    setStepLabel('');
-    setErrorMsg('');
-    setOcrSuccessCount(0);
-  };
-
-  // === RENDER ===
-
-  if (phase === PHASES.done) {
+  // ========================================
+  // RENDER: DONE
+  // ========================================
+  if (phase === 'done') {
+    const aid = antragId.current;
+    const allSuccess = successCount === files.length;
     return (
-      <>
+      <div style={{ textAlign: 'center', padding: '48px 16px' }}>
         <SEOHead title="Analyse abgeschlossen" noindex />
-        <DoneScreen antragId={antragIdRef.current} ocrSuccessCount={ocrSuccessCount} totalFiles={files.length} />
-      </>
+        <div style={{ fontSize: 56, marginBottom: 16 }}>{allSuccess ? '✅' : '⚠️'}</div>
+        <h2 style={{ fontSize: 24, fontWeight: 600, color: '#1A3C2B', marginBottom: 8 }}>
+          {allSuccess ? 'Analyse abgeschlossen!' : 'Upload abgeschlossen'}
+        </h2>
+        <p style={{ color: '#8AA494', maxWidth: 420, margin: '0 auto 12px', lineHeight: 1.6 }}>
+          {successCount > 0
+            ? `${successCount} von ${files.length} Dokument(en) erfolgreich analysiert.`
+            : 'Dokumente hochgeladen. Die automatische Analyse konnte nicht abgeschlossen werden.'}
+        </p>
+        {estimatedResult && estimatedResult.estimated_monthly > 0 && (
+          <div style={{ fontSize: 36, fontWeight: 700, color: '#E2C044', fontFamily: 'var(--font-mono)', margin: '16px 0' }}>
+            ~{estimatedResult.estimated_monthly} €/Monat
+          </div>
+        )}
+        <div style={{ marginTop: 24 }}>
+          <a
+            href={`/app/antrag/${aid}`}
+            style={{
+              display: 'inline-block', background: '#E2C044', color: '#1A3C2B',
+              fontWeight: 600, fontSize: 18, padding: '14px 36px',
+              borderRadius: 8, textDecoration: 'none',
+            }}
+          >
+            Ergebnis ansehen →
+          </a>
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <a href="/app" style={{ color: '#8AA494', fontSize: 14, textDecoration: 'underline' }}>Zum Dashboard</a>
+        </div>
+      </div>
     );
   }
 
-  if (phase === PHASES.error) {
+  // ========================================
+  // RENDER: ERROR
+  // ========================================
+  if (phase === 'error') {
     return (
-      <>
+      <div style={{ textAlign: 'center', padding: '48px 16px' }}>
         <SEOHead title="Fehler" noindex />
-        <ErrorScreen message={errorMsg} onRetry={resetToIdle} />
-      </>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>❌</div>
+        <h2 style={{ fontSize: 20, color: '#1A3C2B', marginBottom: 8 }}>Etwas ist schiefgelaufen</h2>
+        <p style={{ color: '#8AA494', maxWidth: 400, margin: '0 auto 24px', fontSize: 14, lineHeight: 1.6 }}>{errorMsg}</p>
+        <button
+          onClick={() => { setPhase('idle'); setPercent(0); setErrorMsg(''); }}
+          style={{ background: '#1A3C2B', color: '#FFF', padding: '12px 32px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}
+        >
+          Erneut versuchen
+        </button>
+        <div style={{ marginTop: 12 }}>
+          <a href="/app" style={{ color: '#8AA494', fontSize: 14, textDecoration: 'underline' }}>Zum Dashboard</a>
+        </div>
+      </div>
     );
   }
 
-  if (phase !== PHASES.idle) {
+  // ========================================
+  // RENDER: PROGRESS (uploading | analyzing | saving)
+  // ========================================
+  if (phase !== 'idle') {
+    const phases = ['uploading', 'analyzing', 'saving'];
+    const phaseLabels = ['Hochladen', 'KI-Analyse', 'Berechnung'];
+    const currentIdx = phases.indexOf(phase);
+
     return (
-      <>
+      <div style={{ padding: 32, maxWidth: 480, margin: '0 auto' }}>
         <SEOHead title="Dokumente werden analysiert" noindex />
-        <ProgressScreen phase={phase} percent={percent} stepLabel={stepLabel} ocrSuccessCount={ocrSuccessCount} ocrTotalCount={files.length} />
-      </>
+
+        {/* Progress Bar */}
+        <div style={{ background: '#C8DAD0', borderRadius: 100, height: 12, overflow: 'hidden', marginBottom: 16 }}>
+          <div style={{ height: '100%', borderRadius: 100, background: '#E2C044', width: `${percent}%`, transition: 'width 0.5s ease-out' }} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 32 }}>
+          <span style={{ fontSize: 14, color: '#8AA494' }}>{stepLabel}</span>
+          <span style={{ fontSize: 20, fontWeight: 700, color: '#1A3C2B', fontFamily: 'var(--font-mono)' }}>{percent}%</span>
+        </div>
+
+        {/* Phase dots */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginBottom: 32 }}>
+          {phases.map((p, i) => (
+            <div key={p} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+              <div style={{
+                width: 10, height: 10, borderRadius: '50%',
+                background: i < currentIdx ? '#1A3C2B' : i === currentIdx ? '#E2C044' : '#C8DAD0',
+              }} />
+              <span style={{ color: i === currentIdx ? '#1A3C2B' : '#8AA494', fontWeight: i === currentIdx ? 600 : 400 }}>
+                {phaseLabels[i]}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Spinner */}
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: 40, height: 40, border: '3px solid #C8DAD0', borderTopColor: '#1A3C2B',
+            borderRadius: '50%', margin: '0 auto 16px', animation: 'apspin 0.7s linear infinite',
+          }} />
+          <p style={{ fontSize: 12, color: '#8AA494' }}>Bitte Seite nicht schließen</p>
+        </div>
+        <style>{`@keyframes apspin { to { transform: rotate(360deg) } }`}</style>
+      </div>
     );
   }
 
-  // === IDLE: Upload Form ===
+  // ========================================
+  // RENDER: IDLE (Upload-Formular)
+  // ========================================
   return (
     <>
       <SEOHead title="Dokumente hochladen" noindex />
       <h1 style={{ fontSize: 24, fontWeight: 600, color: '#1A3C2B', marginBottom: 8 }}>Dokumente hochladen</h1>
 
-      {!antragIdFromUrl && (
+      {!urlAntragId && (
         <div style={{ padding: 16, background: '#FFF5F5', borderRadius: 8, border: '1px solid #E8A3A3', marginBottom: 16 }}>
           <p style={{ color: '#C0392B', margin: 0, fontSize: 14 }}>Kein Antrag ausgewählt.</p>
-          <a href="/app/neuer-antrag" style={{ display: 'inline-block', marginTop: 8, color: '#C0392B', fontSize: 14, fontWeight: 600 }}>Neuen Antrag starten →</a>
+          <a href="/app/neuer-antrag" style={{ display: 'inline-block', marginTop: 8, color: '#C0392B', fontSize: 14, fontWeight: 600 }}>
+            Neuen Antrag starten →
+          </a>
         </div>
       )}
 
@@ -372,17 +397,10 @@ export default function UploadPage() {
       </div>
 
       {/* Camera */}
-      <button onClick={() => {
-        const input = document.createElement('input');
-        input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment';
-        input.onchange = (e) => handleFiles(e.target.files);
-        input.click();
-      }} style={{
-        width: '100%', padding: 14, marginBottom: 24, background: '#FFF',
-        border: '1px solid #E2E8E5', borderRadius: 8, cursor: 'pointer',
-        fontFamily: 'var(--font-body)', fontSize: 16, color: '#1A3C2B', fontWeight: 500,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-      }}>
+      <button
+        onClick={() => { const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.capture = 'environment'; i.onchange = (e) => handleFiles(e.target.files); i.click(); }}
+        style={{ width: '100%', padding: 14, marginBottom: 24, background: '#FFF', border: '1px solid #E2E8E5', borderRadius: 8, cursor: 'pointer', fontSize: 16, color: '#1A3C2B', fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+      >
         📸 Foto aufnehmen
       </button>
 
@@ -391,18 +409,13 @@ export default function UploadPage() {
         <div style={{ marginBottom: 24 }}>
           <h3 style={{ marginBottom: 12, fontSize: 16, color: '#1A3C2B' }}>{files.length} Datei(en)</h3>
           {files.map((f, i) => (
-            <div key={i} style={{
-              display: 'flex', alignItems: 'center', gap: 12, padding: 12,
-              borderBottom: '1px solid #F0F3F1',
-            }}>
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, borderBottom: '1px solid #F0F3F1' }}>
               {f.preview && <img src={f.preview} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6 }} alt="" />}
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 500 }}>{f.name}</div>
                 <div style={{ fontSize: 12, color: '#8AA494' }}>{(f.size / 1024).toFixed(0)} KB</div>
               </div>
-              <button onClick={() => setFiles(files.filter((_, j) => j !== i))} style={{
-                background: 'none', border: 'none', color: '#8AA494', cursor: 'pointer', fontSize: 18, padding: 4,
-              }}>×</button>
+              <button onClick={() => setFiles(files.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: '#8AA494', cursor: 'pointer', fontSize: 18, padding: 4 }}>×</button>
             </div>
           ))}
         </div>
@@ -411,14 +424,13 @@ export default function UploadPage() {
       {/* Submit */}
       <button
         onClick={handleUpload}
-        disabled={files.length === 0 || !antragIdFromUrl}
+        disabled={files.length === 0 || !urlAntragId}
         style={{
           width: '100%', padding: 16,
-          background: files.length > 0 && antragIdFromUrl ? '#E2C044' : '#C8DAD0',
-          color: files.length > 0 && antragIdFromUrl ? '#1A3C2B' : '#8AA494',
-          fontWeight: 600, fontSize: 16, borderRadius: 8,
-          border: 'none', fontFamily: 'var(--font-body)',
-          cursor: files.length > 0 && antragIdFromUrl ? 'pointer' : 'not-allowed',
+          background: files.length > 0 && urlAntragId ? '#E2C044' : '#C8DAD0',
+          color: files.length > 0 && urlAntragId ? '#1A3C2B' : '#8AA494',
+          fontWeight: 600, fontSize: 16, borderRadius: 8, border: 'none',
+          cursor: files.length > 0 && urlAntragId ? 'pointer' : 'not-allowed',
         }}
       >
         {files.length} Dokument(e) hochladen & analysieren →
