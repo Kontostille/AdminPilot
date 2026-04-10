@@ -4,21 +4,251 @@ import Button from '../../components/shared/Button.jsx';
 import LeistungIcon from '../../components/shared/LeistungIcon.jsx';
 import { useAppUser } from '../../utils/auth.jsx';
 import { supabase } from '../../utils/supabase.js';
-import { getLeistungBySlug, LEISTUNGEN } from '../../data/leistungen.js';
+import { LEISTUNGEN } from '../../data/leistungen.js';
+import { PRICING } from '../../data/siteConfig.js';
 
 const STATUS_STEPS = ['documents_pending', 'analyzing', 'analysis_complete', 'payment_pending', 'signature_pending', 'submitted', 'approved'];
 const STATUS_LABELS = {
-  draft: 'Entwurf',
-  documents_pending: 'Dokumente hochladen',
-  analyzing: 'Wird analysiert',
-  analysis_complete: 'Analyse fertig',
-  payment_pending: 'Zahlung',
-  signature_pending: 'Unterschrift',
-  submitted: 'Eingereicht',
-  approved: 'Bewilligt',
-  rejected: 'Abgelehnt',
+  draft: 'Entwurf', documents_pending: 'Dokumente hochladen', analyzing: 'Wird analysiert',
+  analysis_complete: 'Analyse fertig', payment_pending: 'Zahlung offen',
+  signature_pending: 'Unterschrift nötig', submitted: 'Bei Behörde eingereicht',
+  approved: 'Bewilligt', rejected: 'Abgelehnt', cancelled: 'Storniert',
 };
 
+const DOC_TYPE_LABELS = {
+  personalausweis: 'Personalausweis', mietvertrag: 'Mietvertrag',
+  einkommensnachweis: 'Einkommensnachweis', rentenbescheid: 'Rentenbescheid',
+  geburtsurkunde: 'Geburtsurkunde', kv_bescheinigung: 'KV-Bescheinigung',
+  kindergeld_bescheid: 'Kindergeld-Bescheid', other: 'Sonstiges Dokument',
+};
+
+const FIELD_LABELS = {
+  full_name: 'Name', birth_date: 'Geburtsdatum', address: 'Adresse',
+  monthly_rent: 'Kaltmiete', warm_rent: 'Warmmiete', landlord: 'Vermieter',
+  gross_income: 'Bruttoeinkommen', net_income: 'Nettoeinkommen', employer: 'Arbeitgeber',
+  monthly_pension: 'Bruttorente', net_pension: 'Nettorente', pension_type: 'Rentenart',
+  insurance_number: 'Versicherungsnr.', child_name: 'Name des Kindes',
+  parent_names: 'Eltern', insurance_type: 'Versicherungsart',
+  monthly_premium: 'Monatsbeitrag', monthly_amount: 'Monatsbetrag',
+  number_of_children: 'Anzahl Kinder', document_type: 'Dokumenttyp', summary: 'Zusammenfassung',
+};
+
+function formatValue(key, val) {
+  if (val === null || val === undefined) return '–';
+  if (Array.isArray(val)) return val.join(', ');
+  if (typeof val === 'number') {
+    if (key.includes('rent') || key.includes('income') || key.includes('pension') || key.includes('premium') || key.includes('amount')) {
+      return `${val.toLocaleString('de-DE')} €`;
+    }
+    return val.toString();
+  }
+  return String(val);
+}
+
+const CONFIDENCE_CONFIG = {
+  hoch: { label: 'Hohe Konfidenz', color: '#0F6E56', bg: '#E1F5EE', desc: 'Die Daten wurden klar erkannt. Diese Schätzung ist relativ zuverlässig.' },
+  mittel: { label: 'Mittlere Konfidenz', color: '#854F0B', bg: '#FAEEDA', desc: 'Einige Daten konnten nicht vollständig erkannt werden. Die tatsächliche Leistung kann abweichen.' },
+  niedrig: { label: 'Niedrige Konfidenz', color: '#791F1F', bg: '#FCEBEB', desc: 'Wenige Daten erkannt. Bitte laden Sie weitere Dokumente hoch für eine genauere Schätzung.' },
+};
+
+// === ANALYSE-ZUSAMMENFASSUNG ===
+function AnalysisSummary({ app, documents, leistung }) {
+  const conf = CONFIDENCE_CONFIG[app.confidence] || CONFIDENCE_CONFIG.niedrig;
+  const analyzedDocs = documents.filter(d => d.ocr_status === 'complete');
+  const failedDocs = documents.filter(d => d.ocr_status === 'failed');
+  let details = {};
+  try { details = JSON.parse(app.notes || '{}'); } catch { details = {}; }
+
+  const monthlyFee = Math.round(Number(app.estimated_monthly) * PRICING.successFeePercent / 100);
+  const yearlyBenefit = Number(app.estimated_monthly) * 12;
+  const yearlyFee = monthlyFee * 12;
+  const yearlyNet = yearlyBenefit - yearlyFee - PRICING.baseFeee;
+
+  return (
+    <div>
+      {/* Ergebnis-Card */}
+      <div style={{
+        background: 'linear-gradient(135deg, #1A3C2B 0%, #2D5A43 100%)',
+        borderRadius: 12, padding: 32, color: '#FFF', marginBottom: 24,
+      }}>
+        <p style={{ fontSize: 12, color: '#C8DAD0', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+          Geschätzter möglicher Anspruch
+        </p>
+        <div style={{ fontSize: 48, fontWeight: 700, color: '#E2C044', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>
+          ~{Number(app.estimated_monthly).toLocaleString('de-DE')} €
+        </div>
+        <p style={{ fontSize: 18, color: '#C8DAD0', marginBottom: 16 }}>pro Monat</p>
+        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 12, color: '#8AA494' }}>Pro Jahr</div>
+            <div style={{ fontSize: 18, fontWeight: 600 }}>~{yearlyBenefit.toLocaleString('de-DE')} €</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: '#8AA494' }}>Konfidenz</div>
+            <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 100, background: conf.bg, color: conf.color, fontSize: 12, fontWeight: 600 }}>
+              {conf.label}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Konfidenz-Erklärung */}
+      <div style={{ padding: 16, background: conf.bg, borderRadius: 8, marginBottom: 24, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        <span style={{ fontSize: 16, flexShrink: 0 }}>ℹ️</span>
+        <p style={{ fontSize: 13, color: conf.color, margin: 0, lineHeight: 1.6 }}>{conf.desc}</p>
+      </div>
+
+      {/* Erkannte Daten */}
+      {analyzedDocs.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <h3 style={{ fontSize: 16, marginBottom: 12 }}>Erkannte Daten</h3>
+          {analyzedDocs.map((doc) => {
+            const extracted = doc.ocr_result?.extracted || {};
+            const docLabel = DOC_TYPE_LABELS[doc.doc_type] || doc.doc_type;
+            const entries = Object.entries(extracted).filter(([k, v]) => v && k !== 'raw_text' && k !== 'parse_error');
+            if (entries.length === 0) return null;
+            return (
+              <div key={doc.id} style={{ background: '#FFF', border: '1px solid #E2E8E5', borderRadius: 8, padding: 16, marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <span style={{ fontSize: 14 }}>📄</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#1A3C2B' }}>{docLabel}</span>
+                  <span style={{ fontSize: 11, color: '#8AA494' }}>({doc.file_name})</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
+                  {entries.map(([key, val]) => (
+                    <div key={key} style={{ padding: '6px 0' }}>
+                      <div style={{ fontSize: 11, color: '#8AA494', marginBottom: 2 }}>{FIELD_LABELS[key] || key}</div>
+                      <div style={{ fontSize: 14, fontWeight: 500, color: '#1A3C2B' }}>{formatValue(key, val)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Fehlgeschlagene Dokumente */}
+      {failedDocs.length > 0 && (
+        <div style={{ padding: 16, background: '#FFF5F5', borderRadius: 8, marginBottom: 24, border: '1px solid #E8A3A3' }}>
+          <p style={{ fontSize: 13, color: '#791F1F', margin: 0 }}>
+            {failedDocs.length} Dokument(e) konnten nicht analysiert werden.
+            Sie können diese erneut hochladen für eine genauere Schätzung.
+          </p>
+          <a href={`/app/upload?antrag=${app.id}`} style={{ fontSize: 13, color: '#791F1F', fontWeight: 600, marginTop: 8, display: 'inline-block' }}>
+            Weitere Dokumente hochladen →
+          </a>
+        </div>
+      )}
+
+      {/* Kostenübersicht */}
+      <div style={{ background: '#FFF', border: '1px solid #E2E8E5', borderRadius: 8, padding: 20, marginBottom: 24 }}>
+        <h3 style={{ fontSize: 16, marginBottom: 16 }}>Kostenübersicht</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+            <span style={{ color: '#8AA494' }}>Grundgebühr (einmalig)</span>
+            <span style={{ fontWeight: 600, color: '#1A3C2B' }}>{PRICING.baseFeeLabel}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+            <span style={{ color: '#8AA494' }}>Erfolgsgebühr ({PRICING.successFeePercent}% × ~{Number(app.estimated_monthly).toLocaleString('de-DE')} €)</span>
+            <span style={{ fontWeight: 600, color: '#1A3C2B' }}>~{monthlyFee} €/Monat</span>
+          </div>
+          <div style={{ borderTop: '1px solid #E2E8E5', paddingTop: 12, display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+            <span style={{ color: '#8AA494' }}>Erfolgsgebühr nur im 1. Jahr</span>
+            <span style={{ fontWeight: 600, color: '#1A3C2B' }}>~{yearlyFee.toLocaleString('de-DE')} €</span>
+          </div>
+          <div style={{ background: '#E1F5EE', borderRadius: 6, padding: 12, display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+            <span style={{ fontWeight: 600, color: '#0F6E56' }}>Ihr Nettovorteil im 1. Jahr</span>
+            <span style={{ fontWeight: 700, color: '#0F6E56', fontFamily: 'var(--font-mono)' }}>~{yearlyNet.toLocaleString('de-DE')} €</span>
+          </div>
+        </div>
+        <p style={{ fontSize: 11, color: '#8AA494', marginTop: 12, marginBottom: 0 }}>
+          Ab dem 2. Jahr erhalten Sie die volle Leistung ohne Abzüge. Bei Ablehnung werden die 49 € erstattet.
+        </p>
+      </div>
+
+      {/* Disclaimer */}
+      <div style={{ padding: 12, background: '#FFF8E7', border: '1px solid #E8D5A3', borderRadius: 8, marginBottom: 24, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <span style={{ fontSize: 14, flexShrink: 0 }}>⚖️</span>
+        <p style={{ fontSize: 12, color: '#8B6914', margin: 0, lineHeight: 1.5 }}>
+          Diese Schätzung basiert auf allgemeinen Berechnungsregeln und den erkannten Daten aus Ihren Dokumenten.
+          Die tatsächliche Leistungshöhe wird von der zuständigen Behörde festgelegt und kann abweichen.
+          AdminPilot bietet keine Rechts- oder Sozialberatung an.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// === NÄCHSTE SCHRITTE ===
+function NextSteps({ app, status }) {
+  const steps = [
+    { key: 'analysis_complete', label: 'Analyse abgeschlossen', desc: 'Ihre Dokumente wurden ausgewertet.', done: true },
+    {
+      key: 'payment',
+      label: 'Antrag beauftragen',
+      desc: `Einmalige Grundgebühr von ${PRICING.baseFeeLabel}. Geld zurück bei Ablehnung.`,
+      done: ['payment_pending', 'signature_pending', 'submitted', 'approved'].includes(status) && status !== 'analysis_complete',
+      current: status === 'analysis_complete',
+    },
+    {
+      key: 'signature',
+      label: 'Digital unterschreiben',
+      desc: 'Vollmacht per qualifizierter elektronischer Signatur (QES) bestätigen.',
+      done: ['signature_pending', 'submitted', 'approved'].includes(status) && status !== 'payment_pending',
+      current: status === 'payment_pending',
+    },
+    {
+      key: 'submitted',
+      label: 'Antrag wird eingereicht',
+      desc: 'Wir füllen den Antrag aus und reichen ihn bei der Behörde ein.',
+      done: ['submitted', 'approved'].includes(status),
+      current: status === 'signature_pending',
+    },
+    {
+      key: 'decision',
+      label: 'Entscheidung der Behörde',
+      desc: 'In der Regel 3–8 Wochen. Wir informieren Sie per E-Mail.',
+      done: status === 'approved',
+      current: status === 'submitted',
+    },
+  ];
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <h3 style={{ fontSize: 16, marginBottom: 16 }}>Nächste Schritte</h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        {steps.map((step, i) => (
+          <div key={step.key} style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+            {/* Vertical line + dot */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 20 }}>
+              <div style={{
+                width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+                background: step.done ? '#1A3C2B' : step.current ? '#E2C044' : '#C8DAD0',
+                border: step.current ? '3px solid #F5DFA0' : 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {step.done && <span style={{ color: '#FFF', fontSize: 10, fontWeight: 700 }}>✓</span>}
+              </div>
+              {i < steps.length - 1 && (
+                <div style={{ width: 2, height: 40, background: step.done ? '#1A3C2B' : '#C8DAD0' }} />
+              )}
+            </div>
+            {/* Content */}
+            <div style={{ paddingBottom: 24 }}>
+              <div style={{ fontSize: 14, fontWeight: step.current ? 700 : step.done ? 600 : 400, color: step.current ? '#1A3C2B' : step.done ? '#1A3C2B' : '#8AA494' }}>
+                {step.label}
+              </div>
+              <div style={{ fontSize: 12, color: '#8AA494', marginTop: 2 }}>{step.desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// === HAUPTKOMPONENTE ===
 export default function AntragDetailPage({ params }) {
   const { user } = useAppUser();
   const [app, setApp] = useState(null);
@@ -32,7 +262,7 @@ export default function AntragDetailPage({ params }) {
       const [appRes, updRes, docRes] = await Promise.all([
         supabase.from('applications').select('*').eq('id', params.id).eq('clerk_id', user.id).single(),
         supabase.from('status_updates').select('*').eq('application_id', params.id).order('created_at', { ascending: false }),
-        supabase.from('documents').select('*').eq('application_id', params.id),
+        supabase.from('documents').select('*').eq('application_id', params.id).order('created_at', { ascending: true }),
       ]);
       setApp(appRes.data);
       setUpdates(updRes.data || []);
@@ -42,85 +272,199 @@ export default function AntragDetailPage({ params }) {
     load();
   }, [user, params?.id]);
 
-  if (loading) return <div style={{ padding: 'var(--space-8)', color: 'var(--color-text-muted)' }}>Laden...</div>;
-  if (!app) return <div style={{ padding: 'var(--space-8)' }}><h2>Antrag nicht gefunden</h2><Button to="/app">Zurück zum Dashboard</Button></div>;
+  if (loading) return (
+    <div style={{ padding: 48, textAlign: 'center' }}>
+      <div style={{ width: 32, height: 32, border: '3px solid #C8DAD0', borderTopColor: '#1A3C2B', borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 16px' }} />
+      <p style={{ color: '#8AA494' }}>Antrag wird geladen...</p>
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+    </div>
+  );
+
+  if (!app) return (
+    <div style={{ padding: 48, textAlign: 'center' }}>
+      <h2>Antrag nicht gefunden</h2>
+      <a href="/app" style={{ color: '#8AA494', textDecoration: 'underline' }}>Zum Dashboard</a>
+    </div>
+  );
 
   const leistung = LEISTUNGEN.find(l => l.id === app.leistung_id);
   const currentStepIdx = STATUS_STEPS.indexOf(app.status);
+  const isAnalysisComplete = app.status === 'analysis_complete';
+  const isApproved = app.status === 'approved';
+  const isRejected = app.status === 'rejected';
 
   return (
     <>
       <SEOHead title={`Antrag: ${app.leistung_name}`} noindex />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
         <LeistungIcon id={app.leistung_id} size={48} />
-        <div>
-          <h1 style={{ fontSize: 'var(--text-2xl)', margin: 0 }}>{app.leistung_name}</h1>
-          <p style={{ color: 'var(--color-text-muted)', margin: '4px 0 0', fontSize: 'var(--text-sm)' }}>
+        <div style={{ flex: 1 }}>
+          <h1 style={{ fontSize: 22, margin: 0, color: '#1A3C2B' }}>{app.leistung_name}</h1>
+          <p style={{ color: '#8AA494', margin: '4px 0 0', fontSize: 13 }}>
             Erstellt am {new Date(app.created_at).toLocaleDateString('de-DE')}
           </p>
         </div>
+        <span style={{
+          fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 100,
+          background: isApproved ? '#E1F5EE' : isRejected ? '#FCEBEB' : '#FAEEDA',
+          color: isApproved ? '#0F6E56' : isRejected ? '#791F1F' : '#854F0B',
+        }}>
+          {STATUS_LABELS[app.status]}
+        </span>
       </div>
 
       {/* Status Stepper */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 'var(--space-8)' }}>
-        {STATUS_STEPS.slice(0, 6).map((step, i) => (
+      <div style={{ display: 'flex', gap: 3, marginBottom: 32 }}>
+        {STATUS_STEPS.slice(0, 7).map((step, i) => (
           <div key={step} style={{
             flex: 1, height: 4, borderRadius: 2,
-            background: i <= currentStepIdx ? 'var(--ap-dark)' : 'var(--ap-mint)',
+            background: i <= currentStepIdx ? '#1A3C2B' : '#C8DAD0',
+            transition: 'background 0.3s',
           }} />
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--space-4)' }}>
-        {/* Current Status Card */}
-        <div style={{ padding: 'var(--space-5)', background: 'var(--color-bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
-          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--space-2)' }}>Aktueller Status</p>
-          <p style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--ap-dark)', marginBottom: 'var(--space-4)' }}>{STATUS_LABELS[app.status]}</p>
-
-          {app.status === 'documents_pending' && (
-            <Button variant="primary" to={`/app/upload?antrag=${app.id}`}>Dokumente hochladen →</Button>
-          )}
-          {app.status === 'analysis_complete' && app.estimated_monthly > 0 && (
-            <>
-              <div style={{ fontSize: 'var(--text-3xl)', fontWeight: 700, color: 'var(--ap-gold)', fontFamily: 'var(--font-mono)', marginBottom: 'var(--space-2)' }}>~{app.estimated_monthly} €/Monat</div>
-              <Button variant="primary" to={`/app/zahlung/${app.id}`}>Antrag beauftragen – 49 € →</Button>
-            </>
+      {/* === STATUS: Dokumente hochladen === */}
+      {app.status === 'documents_pending' && (
+        <div style={{ textAlign: 'center', padding: '32px 0' }}>
+          <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.5 }}>📎</div>
+          <h2 style={{ fontSize: 20, marginBottom: 8 }}>Dokumente hochladen</h2>
+          <p style={{ color: '#8AA494', maxWidth: 400, margin: '0 auto 24px' }}>
+            Laden Sie die benötigten Dokumente hoch, damit unsere KI Ihren möglichen Anspruch berechnen kann.
+          </p>
+          <a href={`/app/upload?antrag=${app.id}`} style={{
+            display: 'inline-block', background: '#E2C044', color: '#1A3C2B', fontWeight: 600,
+            padding: '12px 32px', borderRadius: 8, textDecoration: 'none', fontSize: 16,
+          }}>
+            Dokumente hochladen →
+          </a>
+          {leistung && (
+            <div style={{ maxWidth: 300, margin: '24px auto 0', textAlign: 'left' }}>
+              <p style={{ fontSize: 12, color: '#8AA494', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Benötigte Dokumente</p>
+              {leistung.requiredDocs.map((doc, i) => (
+                <div key={i} style={{ fontSize: 13, padding: '4px 0', color: '#2D3A33', display: 'flex', gap: 8 }}>
+                  <span style={{ color: '#C8DAD0' }}>○</span> {doc}
+                </div>
+              ))}
+            </div>
           )}
         </div>
+      )}
 
-        {/* Required Documents */}
-        {leistung && (
-          <div style={{ padding: 'var(--space-5)', background: 'var(--color-bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
-            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--space-3)' }}>Benötigte Dokumente</p>
-            {leistung.requiredDocs.map((doc, i) => {
-              const uploaded = documents.find(d => d.doc_type === doc.toLowerCase().replace(/[^a-z]/g, '_'));
-              return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-2) 0', fontSize: 'var(--text-sm)' }}>
-                  <span style={{ color: uploaded ? 'var(--ap-success, #27AE60)' : 'var(--ap-mint)', fontWeight: 700 }}>{uploaded ? '✓' : '○'}</span>
-                  <span>{doc}</span>
-                </div>
-              );
-            })}
+      {/* === STATUS: Analyse fertig === */}
+      {isAnalysisComplete && (
+        <>
+          <AnalysisSummary app={app} documents={documents} leistung={leistung} />
+          <NextSteps app={app} status={app.status} />
+
+          {/* CTA */}
+          <div style={{
+            background: '#1A3C2B', borderRadius: 12, padding: 32, textAlign: 'center', marginBottom: 24,
+          }}>
+            <p style={{ color: '#C8DAD0', fontSize: 14, marginBottom: 8 }}>Nächster Schritt</p>
+            <h2 style={{ color: '#FFF', fontSize: 22, marginBottom: 4 }}>Antrag jetzt beauftragen</h2>
+            <p style={{ color: '#8AA494', fontSize: 14, marginBottom: 20 }}>
+              Einmalig {PRICING.baseFeeLabel}. Geld zurück bei Ablehnung.
+            </p>
+            <a href={`/app/zahlung/${app.id}`} style={{
+              display: 'inline-block', background: '#E2C044', color: '#1A3C2B', fontWeight: 600,
+              fontSize: 18, padding: '14px 40px', borderRadius: 8, textDecoration: 'none',
+            }}>
+              Jetzt beauftragen – {PRICING.baseFeeLabel} →
+            </a>
+            <p style={{ color: '#8AA494', fontSize: 12, marginTop: 12, marginBottom: 0 }}>
+              Sicher bezahlen mit Kreditkarte, SEPA oder PayPal
+            </p>
           </div>
-        )}
-      </div>
 
-      {/* Timeline */}
+          {/* Alternative: Weitere Dokumente */}
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <a href={`/app/upload?antrag=${app.id}`} style={{ color: '#8AA494', fontSize: 13, textDecoration: 'underline' }}>
+              Weitere Dokumente hochladen für genauere Analyse
+            </a>
+          </div>
+        </>
+      )}
+
+      {/* === STATUS: Eingereicht === */}
+      {app.status === 'submitted' && (
+        <div style={{ textAlign: 'center', padding: '32px 0' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>📨</div>
+          <h2 style={{ fontSize: 20, marginBottom: 8 }}>Ihr Antrag wurde eingereicht</h2>
+          <p style={{ color: '#8AA494', maxWidth: 400, margin: '0 auto 16px' }}>
+            Der Antrag auf {app.leistung_name} wurde bei der zuständigen Behörde eingereicht.
+            Die Bearbeitung dauert in der Regel 3–8 Wochen.
+          </p>
+          <p style={{ fontSize: 14, color: '#1A3C2B', fontWeight: 600 }}>
+            Wir informieren Sie per E-Mail, sobald es ein Update gibt.
+          </p>
+          <NextSteps app={app} status={app.status} />
+        </div>
+      )}
+
+      {/* === STATUS: Bewilligt === */}
+      {isApproved && (
+        <div style={{ textAlign: 'center', padding: '32px 0' }}>
+          <div style={{ fontSize: 56, marginBottom: 16 }}>🎉</div>
+          <h2 style={{ fontSize: 24, marginBottom: 8, color: '#0F6E56' }}>Glückwunsch! Ihr Antrag wurde bewilligt.</h2>
+          <div style={{ fontSize: 40, fontWeight: 700, color: '#E2C044', fontFamily: 'var(--font-mono)', margin: '16px 0' }}>
+            {Number(app.estimated_monthly).toLocaleString('de-DE')} €/Monat
+          </div>
+          <p style={{ color: '#8AA494', maxWidth: 400, margin: '0 auto' }}>
+            Die Leistung wird Ihnen monatlich überwiesen. Bei Fragen wenden Sie sich an info@adminpilot.de.
+          </p>
+        </div>
+      )}
+
+      {/* === STATUS: Abgelehnt === */}
+      {isRejected && (
+        <div style={{ textAlign: 'center', padding: '32px 0' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>😔</div>
+          <h2 style={{ fontSize: 20, marginBottom: 8 }}>Antrag leider abgelehnt</h2>
+          <p style={{ color: '#8AA494', maxWidth: 400, margin: '0 auto 16px' }}>
+            Leider wurde Ihr Antrag auf {app.leistung_name} von der Behörde abgelehnt.
+          </p>
+          <div style={{ background: '#E1F5EE', borderRadius: 8, padding: 16, maxWidth: 400, margin: '0 auto 24px' }}>
+            <p style={{ fontSize: 14, color: '#0F6E56', margin: 0, fontWeight: 600 }}>
+              Geld-zurück-Garantie: Die Grundgebühr von {PRICING.baseFeeLabel} wird Ihnen erstattet.
+            </p>
+          </div>
+          <a href="mailto:info@adminpilot.de" style={{ color: '#8AA494', fontSize: 14, textDecoration: 'underline' }}>
+            Kontakt aufnehmen für Widerspruch
+          </a>
+        </div>
+      )}
+
+      {/* === TIMELINE (immer sichtbar) === */}
       {updates.length > 0 && (
-        <div style={{ marginTop: 'var(--space-8)' }}>
-          <h3 style={{ marginBottom: 'var(--space-4)' }}>Verlauf</h3>
-          <div style={{ borderLeft: '2px solid var(--ap-mint)', paddingLeft: 'var(--space-5)' }}>
+        <div style={{ marginTop: 32, paddingTop: 24, borderTop: '1px solid #E2E8E5' }}>
+          <h3 style={{ fontSize: 16, marginBottom: 16 }}>Verlauf</h3>
+          <div style={{ borderLeft: '2px solid #C8DAD0', paddingLeft: 20 }}>
             {updates.map((u, i) => (
-              <div key={u.id} style={{ marginBottom: 'var(--space-4)', position: 'relative' }}>
-                <div style={{ position: 'absolute', left: '-27px', top: 4, width: 10, height: 10, borderRadius: '50%', background: i === 0 ? 'var(--ap-dark)' : 'var(--ap-mint)' }} />
-                <p style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--ap-dark)', margin: 0 }}>{STATUS_LABELS[u.status] || u.status}</p>
-                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', margin: '2px 0 0' }}>{u.message}</p>
-                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', margin: '2px 0 0' }}>{new Date(u.created_at).toLocaleString('de-DE')}</p>
+              <div key={u.id} style={{ marginBottom: 20, position: 'relative' }}>
+                <div style={{
+                  position: 'absolute', left: -25, top: 4, width: 10, height: 10,
+                  borderRadius: '50%', background: i === 0 ? '#1A3C2B' : '#C8DAD0',
+                }} />
+                <p style={{ fontSize: 13, fontWeight: 600, color: '#1A3C2B', margin: 0 }}>
+                  {STATUS_LABELS[u.status] || u.status}
+                </p>
+                <p style={{ fontSize: 13, color: '#8AA494', margin: '2px 0 0' }}>{u.message}</p>
+                <p style={{ fontSize: 11, color: '#C8DAD0', margin: '2px 0 0' }}>
+                  {new Date(u.created_at).toLocaleString('de-DE')}
+                </p>
               </div>
             ))}
           </div>
         </div>
       )}
+
+      {/* Zurück zum Dashboard */}
+      <div style={{ textAlign: 'center', marginTop: 24, paddingBottom: 24 }}>
+        <a href="/app" style={{ color: '#8AA494', fontSize: 13, textDecoration: 'underline' }}>← Zurück zum Dashboard</a>
+      </div>
     </>
   );
 }

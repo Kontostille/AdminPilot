@@ -1,41 +1,116 @@
+import { useState, useEffect } from 'react';
 import { SEOHead } from '../../components/shared/index.jsx';
+import LeistungIcon from '../../components/shared/LeistungIcon.jsx';
+import { useAppUser } from '../../utils/auth.jsx';
+import { supabase } from '../../utils/supabase.js';
+import { PRICING } from '../../data/siteConfig.js';
 
-export default function ZahlungPage() {
+export default function ZahlungPage({ params }) {
+  const { user } = useAppUser();
+  const [app, setApp] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user || !params?.id) return;
+    supabase.from('applications').select('*').eq('id', params.id).eq('clerk_id', user.id).single()
+      .then(({ data }) => { setApp(data); setLoading(false); });
+  }, [user, params?.id]);
+
+  if (loading) return <div style={{ padding: 48, textAlign: 'center', color: '#8AA494' }}>Laden...</div>;
+  if (!app) return <div style={{ padding: 48, textAlign: 'center' }}><h2>Antrag nicht gefunden</h2><a href="/app">Dashboard</a></div>;
+
+  const monthlyFee = Math.round(Number(app.estimated_monthly) * PRICING.successFeePercent / 100);
+
+  const handlePayment = async () => {
+    // TODO: Stripe Checkout Session erstellen
+    // Für jetzt: Status direkt auf payment_pending setzen
+    await supabase.from('applications')
+      .update({ status: 'payment_pending', updated_at: new Date().toISOString() })
+      .eq('id', app.id);
+    await supabase.from('status_updates').insert({
+      application_id: app.id,
+      status: 'payment_pending',
+      message: 'Zahlung wird verarbeitet.',
+    });
+    // Redirect zu Stripe (placeholder – wird durch echten Stripe Checkout ersetzt)
+    alert('Stripe-Integration wird in Kürze aktiviert. Der Antrag wurde als "Zahlung offen" markiert.');
+    window.location.href = `/app/antrag/${app.id}`;
+  };
+
   return (
     <>
-      <SEOHead title="Zahlung" description="Einmalige Servicegebühr" />
-      <div className="section">
-        <div className="container">
-          <div style={{
-            padding: 'var(--space-16) 0',
-            textAlign: 'center',
-          }}>
-            <span style={{
-              display: 'inline-block', padding: '4px 12px', borderRadius: 'var(--radius-full)',
-              background: 'var(--ap-mint)', color: 'var(--ap-dark)',
-              fontSize: 'var(--text-xs)', fontWeight: 600, marginBottom: 'var(--space-4)',
-              textTransform: 'uppercase', letterSpacing: '0.1em',
-            }}>
-              App · Stripe
-            </span>
-            <h1 style={{ marginBottom: 'var(--space-4)' }}>Zahlung</h1>
-            <p style={{ color: 'var(--color-text-muted)', maxWidth: '500px', margin: '0 auto' }}>
-              Einmalige Servicegebühr
-            </p>
-            <div style={{
-              marginTop: 'var(--space-8)',
-              padding: 'var(--space-6)',
-              background: 'var(--color-bg-card)',
-              borderRadius: 'var(--radius-lg)',
-              border: '2px dashed var(--color-border)',
-              maxWidth: '400px',
-              margin: 'var(--space-8) auto 0',
-            }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', margin: 0 }}>
-                🚧 Diese Seite wird aktuell entwickelt.
-              </p>
-            </div>
+      <SEOHead title="Antrag beauftragen" noindex />
+      <div style={{ maxWidth: 500, margin: '0 auto' }}>
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <LeistungIcon id={app.leistung_id} size={48} />
+          <h1 style={{ fontSize: 22, marginTop: 12, marginBottom: 4 }}>Antrag beauftragen</h1>
+          <p style={{ color: '#8AA494', fontSize: 14 }}>{app.leistung_name}</p>
+        </div>
+
+        {/* Zusammenfassung */}
+        <div style={{ background: '#F8FAF9', borderRadius: 12, padding: 24, marginBottom: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid #E2E8E5' }}>
+            <span style={{ color: '#8AA494', fontSize: 14 }}>Geschätzter Anspruch</span>
+            <span style={{ fontWeight: 600, color: '#E2C044', fontFamily: 'var(--font-mono)', fontSize: 18 }}>~{Number(app.estimated_monthly).toLocaleString('de-DE')} €/Monat</span>
           </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 14 }}>
+            <span style={{ color: '#8AA494' }}>Grundgebühr (einmalig)</span>
+            <span style={{ fontWeight: 600, color: '#1A3C2B' }}>{PRICING.baseFeeLabel}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 14 }}>
+            <span style={{ color: '#8AA494' }}>Erfolgsgebühr (nur bei Bewilligung)</span>
+            <span style={{ fontWeight: 500, color: '#1A3C2B' }}>~{monthlyFee} €/Monat im 1. Jahr</span>
+          </div>
+        </div>
+
+        {/* Heute zu zahlen */}
+        <div style={{ background: '#1A3C2B', borderRadius: 12, padding: 24, color: '#FFF', textAlign: 'center', marginBottom: 24 }}>
+          <p style={{ fontSize: 12, color: '#8AA494', marginBottom: 4 }}>Heute zu zahlen</p>
+          <div style={{ fontSize: 40, fontWeight: 700, fontFamily: 'var(--font-mono)', marginBottom: 4 }}>{PRICING.baseFeeLabel}</div>
+          <p style={{ fontSize: 12, color: '#C8DAD0', marginBottom: 0 }}>Geld zurück bei Ablehnung</p>
+        </div>
+
+        {/* Was im Preis enthalten ist */}
+        <div style={{ marginBottom: 24 }}>
+          {[
+            'KI-Analyse Ihrer Dokumente',
+            'Vollständige Antragserstellung',
+            'Digitale Signatur & Einreichung',
+            'Status-Tracking per E-Mail',
+            'Geld-zurück-Garantie bei Ablehnung',
+          ].map((item, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', fontSize: 14 }}>
+              <span style={{ color: '#0F6E56', fontWeight: 700 }}>✓</span>
+              <span style={{ color: '#2D3A33' }}>{item}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Zahlungsbutton */}
+        <button onClick={handlePayment} style={{
+          width: '100%', padding: 16, background: '#E2C044', color: '#1A3C2B',
+          fontWeight: 600, fontSize: 16, borderRadius: 8, border: 'none',
+          cursor: 'pointer', marginBottom: 12,
+        }}>
+          Jetzt sicher bezahlen – {PRICING.baseFeeLabel} →
+        </button>
+
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 24 }}>
+          {['Visa', 'Mastercard', 'SEPA', 'PayPal'].map(m => (
+            <span key={m} style={{ fontSize: 11, color: '#8AA494', padding: '2px 8px', background: '#F8FAF9', borderRadius: 4 }}>{m}</span>
+          ))}
+        </div>
+
+        {/* Sicherheit */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', marginBottom: 24 }}>
+          <span style={{ fontSize: 14 }}>🔒</span>
+          <span style={{ fontSize: 12, color: '#8AA494' }}>Verschlüsselte Zahlung über Stripe. Ihre Daten sind sicher.</span>
+        </div>
+
+        {/* Zurück */}
+        <div style={{ textAlign: 'center' }}>
+          <a href={`/app/antrag/${app.id}`} style={{ color: '#8AA494', fontSize: 13, textDecoration: 'underline' }}>← Zurück zur Analyse</a>
         </div>
       </div>
     </>
