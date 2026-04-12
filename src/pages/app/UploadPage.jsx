@@ -241,7 +241,7 @@ export default function UploadPage() {
       )}
 
       <p style={{ color: '#8AA494', marginBottom: 16 }}>
-        Fotografieren oder laden Sie Ihre Dokumente hoch. Unsere KI analysiert sie automatisch.
+        Fotografieren oder laden Sie Ihre Dokumente hoch. Ihre Dokumente werden automatisch analysiert.
       </p>
 
       {/* Benötigte Dokumente */}

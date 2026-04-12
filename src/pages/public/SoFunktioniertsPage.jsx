@@ -3,8 +3,8 @@ import Button from '../../components/shared/Button.jsx';
 
 const steps = [
   { num: '01', title: 'Leistungscheck', desc: 'Beantworten Sie 5 einfache Fragen. In wenigen Minuten erfahren Sie, welche Leistungen für Sie in Frage kommen könnten – kostenlos und unverbindlich.', detail: 'Kein Login nötig. Keine Verpflichtung. Sie erhalten sofort eine unverbindliche Schätzung.' },
-  { num: '02', title: 'Dokumente hochladen', desc: 'Fotografieren Sie Ihre Dokumente mit dem Smartphone – Rentenbescheid, Ausweis, Mietvertrag. Unsere KI erkennt die Daten automatisch.', detail: 'Unterstützte Formate: Foto, PDF, Scan. Qualitätsprüfung in Echtzeit.' },
-  { num: '03', title: 'KI-Analyse', desc: 'Unsere KI analysiert Ihre Dokumente und berechnet Ihren möglichen Anspruch. Sie sehen genau, welche Leistungen und welche Beträge möglich sind.', detail: 'Unverbindliche Schätzung auf Basis allgemeiner Berechnungsregeln.' },
+  { num: '02', title: 'Dokumente hochladen', desc: 'Fotografieren Sie Ihre Dokumente mit dem Smartphone – Rentenbescheid, Ausweis, Mietvertrag. Die Daten werden automatisch erkannt.', detail: 'Unterstützte Formate: Foto, PDF, Scan. Qualitätsprüfung in Echtzeit.' },
+  { num: '03', title: 'Automatische Analyse', desc: 'Ihre Dokumente werden automatisch analysiert und berechnet Ihren möglichen Anspruch. Sie sehen genau, welche Leistungen und welche Beträge möglich sind.', detail: 'Unverbindliche Schätzung auf Basis allgemeiner Berechnungsregeln.' },
   { num: '04', title: 'Antrag wird gestellt', desc: 'Sie bestätigen die Angaben, unterzeichnen digital und wir reichen den Antrag bei der zuständigen Behörde ein.', detail: 'Qualifizierte elektronische Signatur (QES). Rechtlich bindend.' },
   { num: '05', title: 'Status verfolgen', desc: 'Per E-Mail halten wir Sie über den Bearbeitungsstand auf dem Laufenden – bis zur Entscheidung der Behörde.', detail: 'Durchschnittliche Bearbeitungszeit: 3–8 Wochen je nach Leistung.' },
 ];
@@ -12,7 +12,7 @@ const steps = [
 export default function SoFunktioniertsPage() {
   return (
     <>
-      <SEOHead title="So funktioniert's" description="In 5 Schritten zu Ihrer Leistung. Dokumente fotografieren, KI prüft Anspruch, Antrag wird automatisch gestellt." keywords={['AdminPilot Erfahrung', 'Behördenantrag automatisch']} />
+      <SEOHead title="So funktioniert's" description="In 5 Schritten zu Ihrer Leistung. Dokumente fotografieren, Anspruch wird automatisch geprüft, Antrag wird automatisch gestellt." keywords={['AdminPilot Erfahrung', 'Behördenantrag automatisch']} />
       <section className="section" style={{ background: '#FFF' }}>
         <div className="container" style={{ maxWidth: 'var(--max-width-narrow)', textAlign: 'center' }}>
           <h1 style={{ marginBottom: 'var(--space-3)' }}>So funktioniert AdminPilot</h1>

@@ -362,7 +362,7 @@ export default function AntragDetailPage({ params }) {
           <div style={{ marginBottom: 16 }}><AppIcon name="upload" size={48} color="#C8DAD0" /></div>
           <h2 style={{ fontSize: 20, marginBottom: 8 }}>Dokumente hochladen</h2>
           <p style={{ color: '#8AA494', maxWidth: 400, margin: '0 auto 24px' }}>
-            Laden Sie die benötigten Dokumente hoch, damit unsere KI Ihren möglichen Anspruch berechnen kann.
+            Laden Sie die benötigten Dokumente hoch, damit Ihr möglicher Anspruch automatisch berechnet werden kann.
           </p>
           <a href={`/app/upload?antrag=${app.id}`} style={{
             display: 'inline-block', background: '#E2C044', color: '#1A3C2B', fontWeight: 600,

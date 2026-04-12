@@ -18,7 +18,7 @@ function HeroSection() {
             Behördenanträge?<br /><span style={{ color: 'var(--ap-gold)' }}>Erledigen wir für Sie.</span>
           </h1>
           <p style={{ fontSize: 'var(--text-lg)', color: 'var(--ap-mint)', marginBottom: 'var(--space-8)', lineHeight: 1.6, maxWidth: 520 }}>
-            Laden Sie Ihre Dokumente hoch – unsere KI prüft Ihren möglichen Anspruch und stellt den Antrag automatisch für Sie.
+            Laden Sie Ihre Dokumente hoch – wir prüfen Ihren möglichen Anspruch und stellen den Antrag automatisch für Sie.
           </p>
           <div className="hero-buttons" style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
             <Button variant="primary" size="large" to="/senioren">Ich bin Rentner/in</Button>
@@ -212,14 +212,14 @@ function UmzugshilfeTeaser() {
 export default function HomePage() {
   return (
     <>
-      <SEOHead title="Behördenanträge einfach & automatisch stellen" description="Wohngeld, Kindergeld, KV-Zuschuss & mehr – automatisch beantragen. Dokumente hochladen, KI prüft Ihren Anspruch." keywords={['Behördenantrag online', 'Sozialleistungen beantragen', 'Wohngeld Antrag']} />
+      <SEOHead title="Behördenanträge einfach & automatisch stellen" description="Wohngeld, Kindergeld, KV-Zuschuss & mehr – automatisch beantragen. Dokumente hochladen, Anspruch automatisch prüfen." keywords={['Behördenantrag online', 'Sozialleistungen beantragen', 'Wohngeld Antrag']} />
       <HeroSection />
       <LeistungswegweiserGrid />
       <StepByStep />
       <TrustBar />
       <TestimonialSection />
-      <FAQPreview />
       <UmzugshilfeTeaser />
+      <FAQPreview />
       <div className="section"><div className="container"><CTABlock headline="Prüfen Sie jetzt kostenlos, worauf Sie möglicherweise Anspruch haben." buttonText="Zum kostenlosen Leistungscheck" /></div></div>
     </>
   );

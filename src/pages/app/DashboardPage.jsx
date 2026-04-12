@@ -258,7 +258,7 @@ export default function DashboardPage() {
       }}>
         <AppIcon name="info" size={16} color="#8AA494" />
         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
-          <strong style={{ color: 'var(--ap-dark)' }}>So funktioniert's:</strong> Wählen Sie eine Leistung, laden Sie Ihre Dokumente hoch, und unsere KI prüft Ihren möglichen Anspruch. Bei Beauftragung zahlen Sie einmalig 49 €. Wird der Antrag abgelehnt, erhalten Sie Ihr Geld zurück.
+          <strong style={{ color: 'var(--ap-dark)' }}>So funktioniert's:</strong> Wählen Sie eine Leistung, laden Sie Ihre Dokumente hoch, und Ihr möglicher Anspruch wird automatisch geprüft. Bei Beauftragung zahlen Sie einmalig 49 €. Wird der Antrag abgelehnt, erhalten Sie Ihr Geld zurück.
         </div>
       </div>
     </>

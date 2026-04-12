@@ -38,7 +38,7 @@ export default function PreisePage() {
                 <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', margin: 0 }}>Nur bei bewilligter Leistung · Im ersten Jahr · Danach keine Kosten</p>
               </div>
               <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-4)' }}>
-                {['Kostenloser Leistungscheck', 'KI-Analyse Ihrer Dokumente', 'Vollständige Antragserstellung', 'Digitale Signatur & Einreichung', 'Status-Tracking per E-Mail', 'Geld-zurück-Garantie bei Ablehnung'].map((item, i) => (
+                {['Kostenloser Leistungscheck', 'Automatische Analyse Ihrer Dokumente', 'Vollständige Antragserstellung', 'Digitale Signatur & Einreichung', 'Status-Tracking per E-Mail', 'Geld-zurück-Garantie bei Ablehnung'].map((item, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-2) 0', fontSize: 'var(--text-sm)' }}>
                     <span style={{ color: 'var(--ap-dark)', fontWeight: 700, fontSize: 16, flexShrink: 0 }}>✓</span>
                     <span>{item}</span>
