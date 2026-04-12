@@ -192,12 +192,24 @@ function ProgressBar({ current, total }) {
 }
 
 function SliderQuestion({ q, value, onChange, onNext }) {
+  const [editing, setEditing] = useState(false);
+  const [textVal, setTextVal] = useState('');
   const clamp = (v) => Math.max(q.min, Math.min(q.max, v));
 
-  const handleTextChange = (e) => {
-    const raw = e.target.value.replace(/\./g, '').replace(/[^0-9]/g, '');
-    if (raw === '') { onChange(q.min); return; }
-    onChange(clamp(parseInt(raw)));
+  const startEdit = (e) => {
+    setEditing(true);
+    setTextVal(String(value));
+    setTimeout(() => e.target.select(), 0);
+  };
+
+  const finishEdit = () => {
+    setEditing(false);
+    const num = parseInt(textVal.replace(/\D/g, '')) || q.min;
+    onChange(clamp(num));
+  };
+
+  const handleKey = (e) => {
+    if (e.key === 'Enter') finishEdit();
   };
 
   return (
@@ -205,22 +217,37 @@ function SliderQuestion({ q, value, onChange, onNext }) {
       {q.subtitle && <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)' }}>{q.subtitle}</p>}
       <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
         <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6 }}>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={value.toLocaleString('de-DE')}
-            onChange={handleTextChange}
-            onFocus={(e) => e.target.select()}
-            style={{
-              fontSize: 'var(--text-3xl)', fontWeight: 700, color: 'var(--ap-dark)',
-              fontFamily: 'var(--font-mono)', border: 'none', borderBottom: '2px solid var(--ap-gold)',
-              background: 'transparent', textAlign: 'center',
-              width: `${Math.max(4, value.toLocaleString('de-DE').length + 1)}ch`,
-              outline: 'none', padding: '4px 2px',
-            }}
-          />
+          {editing ? (
+            <input
+              type="text"
+              inputMode="numeric"
+              autoFocus
+              value={textVal}
+              onChange={(e) => setTextVal(e.target.value.replace(/[^0-9]/g, ''))}
+              onBlur={finishEdit}
+              onKeyDown={handleKey}
+              style={{
+                fontSize: 'var(--text-3xl)', fontWeight: 700, color: 'var(--ap-dark)',
+                fontFamily: 'var(--font-mono)', border: 'none', borderBottom: '2px solid var(--ap-gold)',
+                background: 'transparent', textAlign: 'center', width: '5ch',
+                outline: 'none', padding: '4px 2px',
+              }}
+            />
+          ) : (
+            <span
+              onClick={startEdit}
+              style={{
+                fontSize: 'var(--text-3xl)', fontWeight: 700, color: 'var(--ap-dark)',
+                fontFamily: 'var(--font-mono)', borderBottom: '2px solid var(--ap-gold)',
+                padding: '4px 2px', cursor: 'text',
+              }}
+            >
+              {value.toLocaleString('de-DE')}
+            </span>
+          )}
           <span style={{ fontSize: 'var(--text-2xl)', fontWeight: 600, color: 'var(--ap-sage)' }}>{q.unit}</span>
         </div>
+        {!editing && <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 6 }}>Klicken zum Eingeben</p>}
       </div>
       <input type="range" min={q.min} max={q.max} step={q.step} value={value}
         onChange={(e) => onChange(parseInt(e.target.value))}
