@@ -19,6 +19,7 @@ import RatgeberPage from './pages/public/RatgeberPage';
 import FAQPage from './pages/public/FAQPage';
 import KontaktPage from './pages/public/KontaktPage';
 import PressePage from './pages/public/PressePage';
+import UmzugshilfePage from './pages/public/UmzugshilfePage';
 
 // === Legal Pages ===
 import DatenschutzPage from './pages/legal/DatenschutzPage';
@@ -62,6 +63,7 @@ const PUBLIC_ROUTES = {
   '/faq': FAQPage,
   '/kontakt': KontaktPage,
   '/presse': PressePage,
+  '/umzugshilfe': UmzugshilfePage,
   // Legal
   '/datenschutz': DatenschutzPage,
   '/agb': AGBPage,

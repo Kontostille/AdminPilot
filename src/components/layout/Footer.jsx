@@ -8,6 +8,7 @@ const FOOTER_LINKS = {
     { label: 'So funktioniert\'s', path: '/so-funktionierts' },
     { label: 'Preise', path: '/preise' },
     { label: 'FAQ', path: '/faq' },
+    { label: 'Umzugshilfe', path: '/umzugshilfe' },
   ],
   'Über uns': [
     
