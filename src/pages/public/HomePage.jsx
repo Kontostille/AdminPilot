@@ -178,6 +178,37 @@ function FAQPreview() {
   );
 }
 
+function UmzugshilfeTeaser() {
+  return (
+    <section className="section" style={{ background: '#FFF' }}>
+      <div className="container" style={{ maxWidth: 'var(--max-width-narrow)' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 'var(--space-8)',
+          background: 'var(--ap-dark)', borderRadius: 'var(--radius-xl)', padding: 'var(--space-8)',
+          color: '#FFF', flexWrap: 'wrap',
+        }}>
+          <div style={{ flex: 1, minWidth: 260 }}>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ap-gold)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>Kostenloser Service</span>
+            <h2 style={{ fontSize: 'var(--text-xl)', margin: 'var(--space-2) 0 var(--space-3)' }}>Umzug geplant?</h2>
+            <p style={{ color: 'var(--ap-mint)', fontSize: 'var(--text-sm)', lineHeight: 1.6, marginBottom: 'var(--space-4)' }}>
+              Unsere interaktive Umzugs-Checkliste führt Sie durch alle Behördengänge und Fristen – von der Kündigung bis zur Ummeldung. Kostenlos.
+            </p>
+            <Button variant="primary" size="small" to="/umzugshilfe">Zur Umzugshilfe →</Button>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', minWidth: 180 }}>
+            {['23 Aufgaben', '5 Phasen', 'Fortschritt speichern'].map((t) => (
+              <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--text-sm)', color: 'var(--ap-mint)' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ap-gold)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                {t}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function HomePage() {
   return (
     <>
@@ -188,6 +219,7 @@ export default function HomePage() {
       <TrustBar />
       <TestimonialSection />
       <FAQPreview />
+      <UmzugshilfeTeaser />
       <div className="section"><div className="container"><CTABlock headline="Prüfen Sie jetzt kostenlos, worauf Sie möglicherweise Anspruch haben." buttonText="Zum kostenlosen Leistungscheck" /></div></div>
     </>
   );

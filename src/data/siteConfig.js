@@ -207,4 +207,22 @@ export const RATGEBER_ARTICLES = [
       <p>Anspruch haben Familien, die Wohngeld, Kinderzuschlag, Bürgergeld oder Sozialhilfe beziehen. Auch Familien mit Asylbewerberleistungen können BuT erhalten.</p>
     `,
   },
+  {
+    slug: 'umzug-checkliste-behoerdengaenge',
+    title: 'Umzug-Checkliste: Alle Behördengänge auf einen Blick',
+    excerpt: 'Ein Umzug bedeutet viel Papierkram. Unsere interaktive Checkliste zeigt Ihnen alle Fristen und Pflichten – von der Kündigung bis zur Ummeldung.',
+    category: 'Umzug',
+    readTime: '5 Min.',
+    date: '2026-04-01',
+    content: `
+      <p>Ein Umzug innerhalb Deutschlands bringt zahlreiche Behördengänge und Fristen mit sich. Die wichtigste Pflicht: Sie müssen sich innerhalb von 14 Tagen nach dem Einzug beim Einwohnermeldeamt ummelden. Bei Versäumnis droht ein Bußgeld von bis zu 1.000 €.</p>
+      <h2>Die wichtigsten Schritte</h2>
+      <p><strong>3 Monate vorher:</strong> Mietvertrag kündigen (3 Monate Kündigungsfrist), neue Wohnung suchen, Umzugsunternehmen buchen.</p>
+      <p><strong>4 Wochen vorher:</strong> Nachsendeauftrag bei der Post einrichten, Strom/Gas/Internet ummelden, Schule/Kita am neuen Ort anmelden.</p>
+      <p><strong>Nach dem Umzug:</strong> Wohnsitz ummelden, Personalausweis aktualisieren, KFZ ummelden, Arbeitgeber informieren.</p>
+      <h2>Nach dem Umzug: Neue Ansprüche prüfen</h2>
+      <p>Ein neuer Wohnort kann auch neue Ansprüche auf Sozialleistungen bedeuten. Wohngeld hängt von der Miete und dem Wohnort ab – prüfen Sie nach dem Umzug, ob Ihnen Leistungen zustehen.</p>
+      <p><strong>Tipp:</strong> Nutzen Sie unsere <a href="/umzugshilfe">kostenlose interaktive Umzugs-Checkliste</a> mit 23 Aufgaben in 5 Phasen.</p>
+    `,
+  },
 ];
