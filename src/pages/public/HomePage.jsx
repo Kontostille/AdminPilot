@@ -68,10 +68,15 @@ function LeistungswegweiserGrid() {
 }
 
 function StepByStep() {
+  const icons = {
+    camera: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2" strokeLinecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
+    search: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+    check: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>,
+  };
   const steps = [
-    { num: '01', icon: '📸', title: 'Dokumente fotografieren', desc: 'Rentenbescheid, Ausweis, Mietvertrag – einfach mit dem Smartphone abfotografieren.' },
-    { num: '02', icon: '🔍', title: 'KI prüft Ihren Anspruch', desc: 'Unsere KI erkennt Ihre Daten und zeigt, welche Leistungen in Frage kommen könnten.' },
-    { num: '03', icon: '✅', title: 'Antrag wird gestellt', desc: 'Sie unterschreiben digital – wir füllen den Antrag aus und reichen ihn ein.' },
+    { num: '01', icon: icons.camera, title: 'Dokumente fotografieren', desc: 'Rentenbescheid, Ausweis, Mietvertrag – einfach mit dem Smartphone abfotografieren.' },
+    { num: '02', icon: icons.search, title: 'Analyse prüft Ihren Anspruch', desc: 'Unsere Analyse erkennt Ihre Daten und zeigt, welche Leistungen in Frage kommen könnten.' },
+    { num: '03', icon: icons.check, title: 'Antrag wird gestellt', desc: 'Sie unterschreiben digital – wir füllen den Antrag aus und reichen ihn ein.' },
   ];
   return (
     <section className="section" style={{ background: 'var(--color-bg)' }}>
