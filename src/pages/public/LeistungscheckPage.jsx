@@ -192,21 +192,35 @@ function ProgressBar({ current, total }) {
 }
 
 function SliderQuestion({ q, value, onChange, onNext }) {
+  const handleInput = (e) => {
+    const raw = e.target.value.replace(/[^0-9]/g, '');
+    const num = parseInt(raw) || 0;
+    onChange(num);
+  };
+
   return (
     <div>
       {q.subtitle && <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)' }}>{q.subtitle}</p>}
-      <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
-        <span style={{ fontSize: 'var(--text-3xl)', fontWeight: 700, color: 'var(--ap-dark)', fontFamily: 'var(--font-mono)' }}>
-          {value.toLocaleString('de-DE')} {q.unit}
-        </span>
+      <div style={{ textAlign: 'center', marginBottom: 'var(--space-4)' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 8, background: 'var(--color-bg-card)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', padding: '12px 24px' }}>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={value || ''}
+            onChange={handleInput}
+            placeholder={q.default ? String(q.default) : '0'}
+            style={{
+              fontSize: 'var(--text-3xl)', fontWeight: 700, color: 'var(--ap-dark)',
+              fontFamily: 'var(--font-mono)', border: 'none', outline: 'none',
+              width: '140px', textAlign: 'right', background: 'transparent',
+            }}
+          />
+          <span style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--ap-sage)' }}>{q.unit}</span>
+        </div>
       </div>
-      <input type="range" min={q.min} max={q.max} step={q.step} value={value}
-        onChange={(e) => onChange(parseInt(e.target.value))}
-        style={{ width: '100%', height: 8, borderRadius: 4, appearance: 'none', background: 'var(--ap-mint)', outline: 'none', cursor: 'pointer' }} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginTop: 'var(--space-2)' }}>
-        <span>{q.min.toLocaleString('de-DE')} {q.unit}</span>
-        <span>{q.max.toLocaleString('de-DE')} {q.unit}</span>
-      </div>
+      <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textAlign: 'center', marginBottom: 'var(--space-4)' }}>
+        Geben Sie den Betrag ein (z.B. {q.default?.toLocaleString('de-DE')} {q.unit})
+      </p>
       <div style={{ marginTop: 'var(--space-6)', textAlign: 'center' }}>
         <Button onClick={onNext}>Weiter →</Button>
       </div>

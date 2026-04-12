@@ -1,3 +1,4 @@
+import AppIcon from "../../components/shared/AppIcon.jsx";
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { SEOHead } from '../../components/shared/index.jsx';
 import { useAppUser } from '../../utils/auth.jsx';
@@ -151,7 +152,7 @@ export default function UploadPage() {
     return (
       <div style={{ textAlign: 'center', padding: '48px 16px' }}>
         <SEOHead title="Analyse abgeschlossen" noindex />
-        <div style={{ fontSize: 56, marginBottom: 16 }}>{successCount > 0 ? '✅' : '⚠️'}</div>
+        <div style={{ marginBottom: 16 }}>{successCount > 0 ? <AppIcon name="checkCircle" size={56} color="#0F6E56" /> : <AppIcon name="alertTriangle" size={56} color="#E2C044" />}</div>
         <h2 style={{ fontSize: 24, fontWeight: 600, color: '#1A3C2B', marginBottom: 8 }}>
           {successCount > 0 ? 'Analyse abgeschlossen!' : 'Upload abgeschlossen'}
         </h2>
@@ -183,7 +184,7 @@ export default function UploadPage() {
     return (
       <div style={{ textAlign: 'center', padding: '48px 16px' }}>
         <SEOHead title="Fehler" noindex />
-        <div style={{ fontSize: 48, marginBottom: 16 }}>❌</div>
+        <div style={{ marginBottom: 16 }}><AppIcon name="xCircle" size={48} color="#C0392B" /></div>
         <h2 style={{ fontSize: 20, color: '#1A3C2B', marginBottom: 8 }}>Etwas ist schiefgelaufen</h2>
         <p style={{ color: '#8AA494', maxWidth: 400, margin: '0 auto 24px', fontSize: 14 }}>{errorMsg}</p>
         <button onClick={() => { setPhase('idle'); setPercent(0); setErrorMsg(''); }}
@@ -270,7 +271,7 @@ export default function UploadPage() {
           border: `2px dashed ${dragOver ? '#1A3C2B' : '#E2E8E5'}`, borderRadius: 12,
           background: dragOver ? '#C8DAD0' : '#FFF', transition: 'all 0.2s', marginBottom: 12,
         }}>
-        <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.4 }}>📎</div>
+        <div style={{ marginBottom: 12 }}><AppIcon name="paperclip" size={36} color="#C8DAD0" /></div>
         <p style={{ fontWeight: 600, color: '#1A3C2B', marginBottom: 4 }}>Dateien hierher ziehen oder klicken</p>
         <p style={{ fontSize: 14, color: '#8AA494' }}>JPG, PNG, PDF · max. 10 MB</p>
         <input ref={fileRef} type="file" multiple accept="image/*,.pdf" style={{ display: 'none' }}
@@ -279,7 +280,7 @@ export default function UploadPage() {
 
       <button onClick={() => { const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.capture = 'environment'; i.onchange = (e) => handleFiles(e.target.files); i.click(); }}
         style={{ width: '100%', padding: 14, marginBottom: 24, background: '#FFF', border: '1px solid #E2E8E5', borderRadius: 8, cursor: 'pointer', fontSize: 16, color: '#1A3C2B', fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-        📸 Foto aufnehmen
+        Foto aufnehmen
       </button>
 
       {files.length > 0 && (

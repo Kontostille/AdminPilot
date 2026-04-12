@@ -1,3 +1,4 @@
+import AppIcon from "../../components/shared/AppIcon.jsx";
 import { useState, useEffect } from 'react';
 import { SEOHead } from '../../components/shared/index.jsx';
 import LeistungIcon from '../../components/shared/LeistungIcon.jsx';
@@ -123,13 +124,13 @@ export default function ZahlungPage({ params }) {
         </button>
 
         <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 24 }}>
-          {['Visa', 'Mastercard', 'SEPA', 'PayPal'].map(m => (
+          {['Visa', 'Mastercard', 'SEPA'].map(m => (
             <span key={m} style={{ fontSize: 11, color: '#8AA494', padding: '2px 8px', background: '#F8FAF9', borderRadius: 4 }}>{m}</span>
           ))}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', marginBottom: 24 }}>
-          <span style={{ fontSize: 14 }}>🔒</span>
+          <AppIcon name="lock" size={14} color="#8AA494" />
           <span style={{ fontSize: 12, color: '#8AA494' }}>Verschlüsselte Zahlung über Stripe. Ihre Daten sind sicher.</span>
         </div>
 

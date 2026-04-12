@@ -1,3 +1,4 @@
+import AppIcon from "../../components/shared/AppIcon.jsx";
 import { useState, useEffect } from 'react';
 import { SEOHead } from '../../components/shared/index.jsx';
 import { useAppUser } from '../../utils/auth.jsx';
@@ -49,7 +50,7 @@ export default function ZahlungErfolgreichPage() {
     <>
       <SEOHead title="Zahlung erfolgreich" noindex />
       <div style={{ maxWidth: 500, margin: '0 auto', textAlign: 'center', padding: '48px 16px' }}>
-        <div style={{ fontSize: 56, marginBottom: 16 }}>✅</div>
+        <div style={{ marginBottom: 16 }}><AppIcon name="checkCircle" size={56} color="#0F6E56" /></div>
         <h1 style={{ fontSize: 24, color: '#1A3C2B', marginBottom: 8 }}>Zahlung erfolgreich!</h1>
         <p style={{ color: '#8AA494', marginBottom: 8, lineHeight: 1.6 }}>
           Vielen Dank für Ihre Beauftragung. Die Grundgebühr von 49 € wurde erfolgreich bezahlt.

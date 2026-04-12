@@ -1,3 +1,4 @@
+import AppIcon from "../../components/shared/AppIcon.jsx";
 import { useState, useEffect } from 'react';
 import { SEOHead } from '../../components/shared/index.jsx';
 import { useAppUser } from '../../utils/auth.jsx';
@@ -31,7 +32,7 @@ export default function SignaturPage({ params }) {
     <>
       <SEOHead title="Digitale Unterschrift" noindex />
       <div style={{ maxWidth: 500, margin: '0 auto', textAlign: 'center' }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>✍️</div>
+        <div style={{ marginBottom: 16 }}><AppIcon name="pen" size={48} color="#1A3C2B" /></div>
         <h1 style={{ fontSize: 22, marginBottom: 8 }}>Vollmacht unterschreiben</h1>
         <p style={{ color: '#8AA494', marginBottom: 24, lineHeight: 1.6 }}>
           Mit Ihrer digitalen Unterschrift beauftragen Sie AdminPilot, den Antrag auf {app.leistung_name} in Ihrem Namen bei der zuständigen Behörde einzureichen.

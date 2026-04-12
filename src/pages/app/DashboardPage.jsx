@@ -1,3 +1,4 @@
+import AppIcon from '../../components/shared/AppIcon.jsx';
 import { useState, useEffect } from 'react';
 import { SEOHead } from '../../components/shared/index.jsx';
 import Button from '../../components/shared/Button.jsx';
@@ -7,16 +8,16 @@ import { Link } from '../../utils/router.jsx';
 import LeistungIcon from '../../components/shared/LeistungIcon.jsx';
 
 const STATUS_CONFIG = {
-  draft: { label: 'Entwurf', color: '#888780', bg: '#F1EFE8', icon: '📝' },
-  documents_pending: { label: 'Dokumente fehlen', color: '#854F0B', bg: '#FAEEDA', icon: '📎' },
-  analyzing: { label: 'Wird analysiert', color: '#0F6E56', bg: '#E1F5EE', icon: '🔍' },
-  analysis_complete: { label: 'Analyse fertig', color: '#185FA5', bg: '#E6F1FB', icon: '✅' },
-  payment_pending: { label: 'Zahlung offen', color: '#854F0B', bg: '#FAEEDA', icon: '💳' },
-  signature_pending: { label: 'Unterschrift nötig', color: '#854F0B', bg: '#FAEEDA', icon: '✍️' },
-  submitted: { label: 'Bei Behörde eingereicht', color: '#0F6E56', bg: '#E1F5EE', icon: '📨' },
-  approved: { label: 'Bewilligt', color: '#085041', bg: '#E1F5EE', icon: '🎉' },
-  rejected: { label: 'Abgelehnt', color: '#791F1F', bg: '#FCEBEB', icon: '✗' },
-  cancelled: { label: 'Storniert', color: '#888780', bg: '#F1EFE8', icon: '—' },
+  draft: { label: 'Entwurf', color: '#888780', bg: '#F1EFE8', icon: 'edit' },
+  documents_pending: { label: 'Dokumente fehlen', color: '#854F0B', bg: '#FAEEDA', icon: 'clip' },
+  analyzing: { label: 'Wird analysiert', color: '#0F6E56', bg: '#E1F5EE', icon: 'search' },
+  analysis_complete: { label: 'Analyse fertig', color: '#185FA5', bg: '#E6F1FB', icon: 'check' },
+  payment_pending: { label: 'Zahlung offen', color: '#854F0B', bg: '#FAEEDA', icon: 'card' },
+  signature_pending: { label: 'Unterschrift nötig', color: '#854F0B', bg: '#FAEEDA', icon: 'sign' },
+  submitted: { label: 'Bei Behörde eingereicht', color: '#0F6E56', bg: '#E1F5EE', icon: 'sent' },
+  approved: { label: 'Bewilligt', color: '#085041', bg: '#E1F5EE', icon: 'done' },
+  rejected: { label: 'Abgelehnt', color: '#791F1F', bg: '#FCEBEB', icon: 'x' },
+  cancelled: { label: 'Storniert', color: '#888780', bg: '#F1EFE8', icon: '-' },
 };
 
 function StatCard({ value, label, accent }) {
@@ -93,7 +94,7 @@ function ApplicationCard({ app, onDelete }) {
           background: status.bg, color: status.color,
           display: 'flex', alignItems: 'center', gap: 6,
         }}>
-          <span style={{ fontSize: 12 }}>{status.icon}</span>
+          <span style={{ fontSize: 10, fontWeight: 700 }}>{status.icon === 'check' ? '✓' : status.icon === 'x' ? '✗' : '•'}</span>
           {status.label}
         </span>
 
@@ -163,7 +164,7 @@ export default function DashboardPage() {
       {/* Greeting */}
       <div style={{ marginBottom: 'var(--space-6)' }}>
         <h1 style={{ fontSize: 'var(--text-2xl)', marginBottom: 'var(--space-1)' }}>
-          {greeting}{firstName ? `, ${firstName}` : ''} 👋
+          {greeting}{firstName ? `, ${firstName}` : ''}
         </h1>
         <p style={{ color: 'var(--color-text-muted)' }}>
           {applications.length === 0
@@ -209,7 +210,7 @@ export default function DashboardPage() {
           background: 'var(--color-bg-card)', borderRadius: 'var(--radius-xl)',
           border: '2px dashed var(--color-border)',
         }}>
-          <div style={{ width: 64, height: 64, borderRadius: 'var(--radius-full)', background: 'var(--ap-mint)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-4)', fontSize: 28 }}>📋</div>
+          <div style={{ width: 64, height: 64, borderRadius: 'var(--radius-full)', background: 'var(--ap-mint)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-4)', fontSize: 16 }}><AppIcon name="clipboard" size={28} color="#8AA494" /></div>
           <h3 style={{ marginBottom: 'var(--space-2)' }}>Noch keine Anträge</h3>
           <p style={{ color: 'var(--color-text-muted)', maxWidth: 400, margin: '0 auto var(--space-6)' }}>
             Starten Sie Ihren ersten Antrag und finden Sie heraus, welche Leistungen Ihnen möglicherweise zustehen.
@@ -255,7 +256,7 @@ export default function DashboardPage() {
         border: '1px solid var(--color-border)', display: 'flex',
         alignItems: 'flex-start', gap: 'var(--space-3)',
       }}>
-        <span style={{ fontSize: 16, flexShrink: 0 }}>ℹ️</span>
+        <AppIcon name="info" size={16} color="#8AA494" />
         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
           <strong style={{ color: 'var(--ap-dark)' }}>So funktioniert's:</strong> Wählen Sie eine Leistung, laden Sie Ihre Dokumente hoch, und unsere KI prüft Ihren möglichen Anspruch. Bei Beauftragung zahlen Sie einmalig 49 €. Wird der Antrag abgelehnt, erhalten Sie Ihr Geld zurück.
         </div>

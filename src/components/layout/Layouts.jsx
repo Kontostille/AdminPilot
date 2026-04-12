@@ -3,6 +3,7 @@ import Footer from './Footer';
 import { Link, getPath } from '../../utils/router.jsx';
 import Logo from '../shared/Logo';
 import { UserButton, useUser } from '@clerk/clerk-react';
+import AppIcon from '../shared/AppIcon.jsx';
 
 /* === PublicLayout === */
 export function PublicLayout({ children }) {
@@ -19,11 +20,11 @@ export function PublicLayout({ children }) {
 
 /* === AppLayout === */
 const APP_NAV = [
-  { icon: '📊', label: 'Dashboard', path: '/app' },
-  { icon: '➕', label: 'Neuer Antrag', path: '/app/neuer-antrag' },
-  { icon: '📄', label: 'Dokumente', path: '/app/dokumente' },
-  { icon: '👤', label: 'Profil', path: '/app/profil' },
-  { icon: '❓', label: 'Hilfe', path: '/app/hilfe' },
+  { icon: 'dashboard', label: 'Dashboard', path: '/app' },
+  { icon: 'plus', label: 'Neuer Antrag', path: '/app/neuer-antrag' },
+  { icon: 'document', label: 'Dokumente', path: '/app/dokumente' },
+  { icon: 'user', label: 'Profil', path: '/app/profil' },
+  { icon: 'help', label: 'Hilfe', path: '/app/hilfe' },
 ];
 
 export function AppLayout({ children }) {
@@ -53,7 +54,7 @@ export function AppLayout({ children }) {
                 color: isActive ? '#FFF' : 'var(--ap-mint)',
                 transition: 'all var(--transition-fast)', textDecoration: 'none',
               }}>
-                <span style={{ fontSize: '16px' }}>{item.icon}</span>
+                <AppIcon name={item.icon} size={16} />
                 {item.label}
               </Link>
             );
@@ -96,7 +97,7 @@ export function AppLayout({ children }) {
               padding: '4px 8px', textDecoration: 'none', fontSize: 10, fontWeight: 500,
               color: isActive ? 'var(--ap-dark)' : 'var(--ap-sage)',
             }}>
-              <span style={{ fontSize: 18 }}>{item.icon}</span>
+              <AppIcon name={item.icon} size={18} />
               {item.label.split(' ')[0]}
             </Link>
           );

@@ -1,3 +1,4 @@
+import AppIcon from "../../components/shared/AppIcon.jsx";
 import { useState, useEffect } from 'react';
 import { SEOHead } from '../../components/shared/index.jsx';
 import Button from '../../components/shared/Button.jsx';
@@ -94,7 +95,7 @@ function AnalysisSummary({ app, documents, leistung }) {
 
       {/* Konfidenz-Erklärung */}
       <div style={{ padding: 16, background: conf.bg, borderRadius: 8, marginBottom: 24, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-        <span style={{ fontSize: 16, flexShrink: 0 }}>ℹ️</span>
+        <AppIcon name="info" size={16} />
         <p style={{ fontSize: 13, color: conf.color, margin: 0, lineHeight: 1.6 }}>{conf.desc}</p>
       </div>
 
@@ -139,7 +140,7 @@ function AnalysisSummary({ app, documents, leistung }) {
             return (
               <div key={doc.id} style={{ background: '#FFF', border: '1px solid #E2E8E5', borderRadius: 8, padding: 16, marginBottom: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <span style={{ fontSize: 14 }}>📄</span>
+                  <AppIcon name="document" size={16} />
                   <span style={{ fontSize: 13, fontWeight: 600, color: '#1A3C2B' }}>{docLabel}</span>
                   <span style={{ fontSize: 11, color: '#8AA494' }}>({doc.file_name})</span>
                 </div>
@@ -198,7 +199,7 @@ function AnalysisSummary({ app, documents, leistung }) {
 
       {/* Disclaimer */}
       <div style={{ padding: 12, background: '#FFF8E7', border: '1px solid #E8D5A3', borderRadius: 8, marginBottom: 24, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-        <span style={{ fontSize: 14, flexShrink: 0 }}>⚖️</span>
+        <AppIcon name="scale" size={16} />
         <p style={{ fontSize: 12, color: '#8B6914', margin: 0, lineHeight: 1.5 }}>
           Diese Schätzung basiert auf allgemeinen Berechnungsregeln und den erkannten Daten aus Ihren Dokumenten.
           Die tatsächliche Leistungshöhe wird von der zuständigen Behörde festgelegt und kann abweichen.
@@ -358,7 +359,7 @@ export default function AntragDetailPage({ params }) {
       {/* === STATUS: Dokumente hochladen === */}
       {app.status === 'documents_pending' && (
         <div style={{ textAlign: 'center', padding: '32px 0' }}>
-          <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.5 }}>📎</div>
+          <div style={{ marginBottom: 16 }}><AppIcon name="upload" size={48} color="#C8DAD0" /></div>
           <h2 style={{ fontSize: 20, marginBottom: 8 }}>Dokumente hochladen</h2>
           <p style={{ color: '#8AA494', maxWidth: 400, margin: '0 auto 24px' }}>
             Laden Sie die benötigten Dokumente hoch, damit unsere KI Ihren möglichen Anspruch berechnen kann.
@@ -404,7 +405,7 @@ export default function AntragDetailPage({ params }) {
               Jetzt beauftragen – {PRICING.baseFeeLabel} →
             </a>
             <p style={{ color: '#8AA494', fontSize: 12, marginTop: 12, marginBottom: 0 }}>
-              Sicher bezahlen mit Kreditkarte, SEPA oder PayPal
+              Sicher bezahlen mit Kreditkarte oder SEPA-Lastschrift
             </p>
           </div>
 
@@ -434,7 +435,7 @@ export default function AntragDetailPage({ params }) {
       {/* === STATUS: Eingereicht === */}
       {app.status === 'submitted' && (
         <div style={{ textAlign: 'center', padding: '32px 0' }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>📨</div>
+          <div style={{ marginBottom: 16 }}><AppIcon name="send" size={48} color="#0F6E56" /></div>
           <h2 style={{ fontSize: 20, marginBottom: 8 }}>Ihr Antrag wurde eingereicht</h2>
           <p style={{ color: '#8AA494', maxWidth: 400, margin: '0 auto 16px' }}>
             Der Antrag auf {app.leistung_name} wurde bei der zuständigen Behörde eingereicht.
@@ -450,7 +451,7 @@ export default function AntragDetailPage({ params }) {
       {/* === STATUS: Bewilligt === */}
       {isApproved && (
         <div style={{ textAlign: 'center', padding: '32px 0' }}>
-          <div style={{ fontSize: 56, marginBottom: 16 }}>🎉</div>
+          <div style={{ marginBottom: 16 }}><AppIcon name="trophy" size={56} color="#E2C044" /></div>
           <h2 style={{ fontSize: 24, marginBottom: 8, color: '#0F6E56' }}>Glückwunsch! Ihr Antrag wurde bewilligt.</h2>
           <div style={{ fontSize: 40, fontWeight: 700, color: '#E2C044', fontFamily: 'var(--font-mono)', margin: '16px 0' }}>
             {Number(app.estimated_monthly).toLocaleString('de-DE')} €/Monat
@@ -464,7 +465,7 @@ export default function AntragDetailPage({ params }) {
       {/* === STATUS: Abgelehnt === */}
       {isRejected && (
         <div style={{ textAlign: 'center', padding: '32px 0' }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>😔</div>
+          <div style={{ marginBottom: 16 }}><AppIcon name="frown" size={48} color="#8AA494" /></div>
           <h2 style={{ fontSize: 20, marginBottom: 8 }}>Antrag leider abgelehnt</h2>
           <p style={{ color: '#8AA494', maxWidth: 400, margin: '0 auto 16px' }}>
             Leider wurde Ihr Antrag auf {app.leistung_name} von der Behörde abgelehnt.

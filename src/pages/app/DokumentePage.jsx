@@ -1,3 +1,4 @@
+import AppIcon from "../../components/shared/AppIcon.jsx";
 import { useState, useEffect } from 'react';
 import { SEOHead } from '../../components/shared/index.jsx';
 import { useAppUser } from '../../utils/auth.jsx';
@@ -31,7 +32,7 @@ export default function DokumentePage() {
         <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
           {docs.map(d => (
             <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-4)', background: 'var(--color-bg-card)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
-              <span style={{ fontSize: 20 }}>📄</span>
+              <AppIcon name="document" size={20} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>{d.file_name}</div>
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>{d.applications?.leistung_name} · {new Date(d.created_at).toLocaleDateString('de-DE')}</div>

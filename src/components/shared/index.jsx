@@ -35,9 +35,9 @@ export function Card({ children, className, style, variant = 'default', ...props
 /* === TrustBar === */
 export function TrustBar() {
   const items = [
-    { icon: '🛡️', text: 'DSGVO-konform' },
-    { icon: '🔒', text: '256-Bit verschlüsselt' },
-    { icon: '🤝', text: 'Sozialverband-Partner' },
+    { icon: 'shield', text: 'DSGVO-konform' },
+    { icon: 'lock', text: '256-Bit verschlüsselt' },
+    { icon: 'check', text: 'Sozialverband-Partner' },
     { icon: '🇩🇪', text: 'Server in Deutschland' },
   ];
   return (
@@ -63,9 +63,9 @@ export function TrustBar() {
 /* === DisclaimerBanner === */
 export function DisclaimerBanner({ variant = 'info' }) {
   const variants = {
-    info: { bg: 'var(--color-border-light)', border: 'var(--color-border)', color: 'var(--color-text-muted)', icon: 'ℹ️' },
-    legal: { bg: '#FFF8E7', border: '#E8D5A3', color: '#8B6914', icon: '⚖️' },
-    warning: { bg: '#FFF5F5', border: '#E8A3A3', color: 'var(--ap-error)', icon: '⚠️' },
+    info: { bg: 'var(--color-border-light)', border: 'var(--color-border)', color: 'var(--color-text-muted)', icon: 'info' },
+    legal: { bg: '#FFF8E7', border: '#E8D5A3', color: '#8B6914', icon: 'scale' },
+    warning: { bg: '#FFF5F5', border: '#E8A3A3', color: 'var(--ap-error)', icon: 'alert' },
   };
   const v = variants[variant] || variants.info;
   return (
