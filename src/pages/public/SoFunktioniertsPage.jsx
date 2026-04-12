@@ -1,4 +1,4 @@
-import { SEOHead, TrustBar, CTABlock, DisclaimerBanner } from '../../components/shared/index.jsx';
+import { SEOHead, TrustBar, CTABlock, DisclaimerBanner, UmzugBanner } from '../../components/shared/index.jsx';
 import Button from '../../components/shared/Button.jsx';
 
 const steps = [
@@ -44,6 +44,7 @@ export default function SoFunktioniertsPage() {
         </div>
       </section>
       <TrustBar />
+      <section className="section"><div className="container" style={{ maxWidth: 'var(--max-width-narrow)' }}><UmzugBanner compact /></div></section>
       <div className="section"><div className="container"><CTABlock /></div></div>
     </>
   );

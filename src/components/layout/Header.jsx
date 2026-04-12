@@ -7,6 +7,7 @@ import { Link, getPath } from '../../utils/router';
 const NAV_ITEMS = [
   { label: 'Leistungen', path: '/leistungen' },
   { label: "So funktioniert's", path: '/so-funktionierts' },
+  { label: 'Umzugshilfe', path: '/umzugshilfe' },
   { label: 'Preise', path: '/preise' },
   { label: 'FAQ', path: '/faq' },
 ];

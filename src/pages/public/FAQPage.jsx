@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { SEOHead } from '../../components/shared/index.jsx';
+import { SEOHead, UmzugBanner } from '../../components/shared/index.jsx';
 import Button from '../../components/shared/Button.jsx';
 import { FAQ_DATA } from '../../data/siteConfig.js';
 
@@ -33,6 +33,9 @@ export default function FAQPage() {
           <div style={{ textAlign: 'center', marginTop: 'var(--space-8)' }}>
             <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)' }}>Ihre Frage war nicht dabei?</p>
             <Button to="/kontakt" variant="secondary">Kontakt aufnehmen →</Button>
+          </div>
+          <div style={{ marginTop: 'var(--space-8)' }}>
+            <UmzugBanner compact />
           </div>
         </div>
       </section>

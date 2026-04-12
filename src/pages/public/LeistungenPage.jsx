@@ -1,4 +1,4 @@
-import { SEOHead, TrustBar, DisclaimerBanner, CTABlock } from '../../components/shared/index.jsx';
+import { SEOHead, TrustBar, DisclaimerBanner, CTABlock, UmzugBanner } from '../../components/shared/index.jsx';
 import LeistungIcon from '../../components/shared/LeistungIcon.jsx';
 import { LEISTUNGEN } from '../../data/leistungen.js';
 import { Link } from '../../utils/router.jsx';
@@ -40,6 +40,7 @@ export default function LeistungenPage() {
         </div>
       </section>
       <TrustBar />
+      <section className="section"><div className="container" style={{ maxWidth: 'var(--max-width-narrow)' }}><UmzugBanner /></div></section>
       <div className="section"><div className="container"><CTABlock headline="Nicht sicher, was passt? Machen Sie den kostenlosen Leistungscheck." /></div></div>
     </>
   );

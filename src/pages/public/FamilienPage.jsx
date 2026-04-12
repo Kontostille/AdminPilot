@@ -1,4 +1,4 @@
-import { SEOHead, TrustBar, DisclaimerBanner, CTABlock } from '../../components/shared/index.jsx';
+import { SEOHead, TrustBar, DisclaimerBanner, CTABlock, UmzugBanner } from '../../components/shared/index.jsx';
 import Button from '../../components/shared/Button.jsx';
 import LeistungIcon from '../../components/shared/LeistungIcon.jsx';
 import { getLeistungenByFunnel } from '../../data/leistungen.js';
@@ -80,6 +80,12 @@ export default function FamilienPage() {
             </p>
             <div style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>— Thomas & Lisa S., Familie mit 2 Kindern</div>
           </div>
+        </div>
+      </section>
+
+      <section className="section" style={{ background: '#FFF', paddingTop: 0 }}>
+        <div className="container" style={{ maxWidth: 'var(--max-width-narrow)' }}>
+          <UmzugBanner />
         </div>
       </section>
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { SEOHead, DisclaimerBanner } from '../../components/shared/index.jsx';
+import { SEOHead, DisclaimerBanner, UmzugBanner } from '../../components/shared/index.jsx';
 import Button from '../../components/shared/Button.jsx';
 import LeistungIcon from '../../components/shared/LeistungIcon.jsx';
 
@@ -324,6 +324,10 @@ export default function LeistungscheckPage() {
               <Button variant="primary" size="large" to="/login">Jetzt Antrag starten – nur 49 € →</Button>
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--ap-sage)', marginTop: 'var(--space-1)' }}>Geld zurück bei Ablehnung</p>
               <button onClick={() => { setShowResult(false); setStep(0); setAnswers({}); }} style={{ background: 'none', border: 'none', color: 'var(--ap-sage)', fontSize: 'var(--text-sm)', cursor: 'pointer', textDecoration: 'underline', marginTop: 'var(--space-2)' }}>Erneut prüfen</button>
+            </div>
+
+            <div style={{ marginTop: 'var(--space-8)', maxWidth: 500, marginLeft: 'auto', marginRight: 'auto' }}>
+              <UmzugBanner compact />
             </div>
           </div>
         </section>

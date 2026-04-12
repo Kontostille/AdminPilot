@@ -134,3 +134,35 @@ export function SEOHead({ title, description, keywords, noindex = false }) {
     </Helmet>
   );
 }
+
+/* === UmzugBanner === */
+export function UmzugBanner({ compact = false }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: compact ? 'center' : 'flex-start', gap: compact ? 16 : 20,
+      background: 'var(--ap-dark)', borderRadius: 'var(--radius-lg)',
+      padding: compact ? '16px 20px' : '24px 28px', color: '#FFF', flexWrap: 'wrap',
+    }}>
+      <svg width={compact ? 28 : 36} height={compact ? 28 : 36} viewBox="0 0 24 24" fill="none" stroke="#E2C044" strokeWidth="1.5" style={{ flexShrink: 0 }}>
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      <div style={{ flex: 1, minWidth: 180 }}>
+        {!compact && <span style={{ fontSize: 10, color: '#E2C044', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>Kostenloser Service</span>}
+        <div style={{ fontSize: compact ? 14 : 16, fontWeight: 600, marginTop: compact ? 0 : 4 }}>
+          {compact ? 'Umzug geplant? Kostenlose Checkliste →' : 'Kürzlich umgezogen oder Umzug geplant?'}
+        </div>
+        {!compact && <p style={{ fontSize: 13, color: 'var(--ap-mint)', margin: '6px 0 0', lineHeight: 1.5 }}>
+          Unsere interaktive Checkliste führt Sie durch alle Behördengänge. Neuer Wohnort = möglicherweise neue Ansprüche auf Wohngeld & Co.
+        </p>}
+      </div>
+      <a href="/umzugshilfe" style={{
+        display: 'inline-block', background: '#E2C044', color: '#1A3C2B', fontWeight: 600,
+        padding: compact ? '8px 16px' : '10px 24px', borderRadius: 8,
+        textDecoration: 'none', fontSize: compact ? 13 : 14, whiteSpace: 'nowrap',
+      }}>
+        Zur Umzugshilfe →
+      </a>
+    </div>
+  );
+}

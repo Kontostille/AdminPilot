@@ -261,6 +261,22 @@ export default function DashboardPage() {
           <strong style={{ color: 'var(--ap-dark)' }}>So funktioniert's:</strong> Wählen Sie eine Leistung, laden Sie Ihre Dokumente hoch, und Ihr möglicher Anspruch wird automatisch geprüft. Bei Beauftragung zahlen Sie einmalig 49 €. Wird der Antrag abgelehnt, erhalten Sie Ihr Geld zurück.
         </div>
       </div>
+
+      {/* Umzugshilfe */}
+      <div style={{ marginTop: 'var(--space-4)' }}>
+        <a href="/umzugshilfe" style={{
+          display: 'flex', alignItems: 'center', gap: 12, padding: 'var(--space-4)',
+          background: 'var(--ap-dark)', borderRadius: 'var(--radius-lg)',
+          textDecoration: 'none', color: '#FFF',
+        }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E2C044" strokeWidth="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>Umzugshilfe</div>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ap-mint)' }}>Interaktive Checkliste für Ihren Umzug</div>
+          </div>
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ap-gold)' }}>→</span>
+        </a>
+      </div>
     </>
   );
 }
