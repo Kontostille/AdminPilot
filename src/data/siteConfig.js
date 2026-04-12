@@ -15,7 +15,7 @@ export const COMPANY = {
 };
 
 export const PRICING = {
-  baseFeee: 49,
+  baseFee: 49,
   baseFeeLabel: '49 €',
   successFeePercent: 10,
   successFeeLabel: '10 % der bewilligten Leistung',

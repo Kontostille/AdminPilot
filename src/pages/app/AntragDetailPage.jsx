@@ -62,7 +62,7 @@ function AnalysisSummary({ app, documents, leistung }) {
   const monthlyFee = Math.round(Number(app.estimated_monthly) * PRICING.successFeePercent / 100);
   const yearlyBenefit = Number(app.estimated_monthly) * 12;
   const yearlyFee = monthlyFee * 12;
-  const yearlyNet = yearlyBenefit - yearlyFee - PRICING.baseFeee;
+  const yearlyNet = yearlyBenefit - yearlyFee - PRICING.baseFee;
 
   return (
     <div>
@@ -96,6 +96,35 @@ function AnalysisSummary({ app, documents, leistung }) {
       <div style={{ padding: 16, background: conf.bg, borderRadius: 8, marginBottom: 24, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
         <span style={{ fontSize: 16, flexShrink: 0 }}>ℹ️</span>
         <p style={{ fontSize: 13, color: conf.color, margin: 0, lineHeight: 1.6 }}>{conf.desc}</p>
+      </div>
+
+      {/* Berechnungsgrundlage */}
+      <div style={{ background: '#FFF', border: '1px solid #E2E8E5', borderRadius: 8, padding: 20, marginBottom: 24 }}>
+        <h3 style={{ fontSize: 16, marginBottom: 16 }}>Berechnungsgrundlage</h3>
+        <p style={{ fontSize: 13, color: '#8AA494', marginBottom: 16, lineHeight: 1.6 }}>
+          Die folgenden Daten wurden aus Ihren Dokumenten extrahiert und für die Berechnung verwendet:
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+          {Object.entries(details).map(([key, val]) => {
+            if (!val) return null;
+            const labels = { income: 'Einkommen (Netto)', rent: 'Warmmiete', householdSize: 'Haushaltsgröße', childCount: 'Kinder', grossPension: 'Bruttorente', netIncome: 'Nettoeinkommen', pension: 'Rente' };
+            const isEuro = ['income', 'rent', 'grossPension', 'netIncome', 'pension'].includes(key);
+            return (
+              <div key={key} style={{ background: '#F8FAF9', borderRadius: 6, padding: 12 }}>
+                <div style={{ fontSize: 11, color: '#8AA494', marginBottom: 4 }}>{labels[key] || key}</div>
+                <div style={{ fontSize: 18, fontWeight: 600, color: '#1A3C2B', fontFamily: 'var(--font-mono)' }}>
+                  {isEuro ? `${Number(val).toLocaleString('de-DE')} €` : val} {key === 'householdSize' ? 'Pers.' : key === 'childCount' ? '' : ''}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {Object.keys(details).length === 0 && (
+          <p style={{ fontSize: 13, color: '#854F0B', margin: 0 }}>
+            Es konnten keine relevanten Daten aus den Dokumenten extrahiert werden.
+            Bitte laden Sie besser lesbare Dokumente hoch.
+          </p>
+        )}
       </div>
 
       {/* Erkannte Daten */}
@@ -379,10 +408,24 @@ export default function AntragDetailPage({ params }) {
             </p>
           </div>
 
-          {/* Alternative: Weitere Dokumente */}
-          <div style={{ textAlign: 'center', marginBottom: 24 }}>
-            <a href={`/app/upload?antrag=${app.id}`} style={{ color: '#8AA494', fontSize: 13, textDecoration: 'underline' }}>
-              Weitere Dokumente hochladen für genauere Analyse
+          {/* Analyse verbessern */}
+          <div style={{
+            background: '#F8FAF9', border: '1px solid #E2E8E5', borderRadius: 12, padding: 24, marginBottom: 24,
+            display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+          }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <h3 style={{ fontSize: 15, color: '#1A3C2B', marginBottom: 6 }}>Analyse verbessern?</h3>
+              <p style={{ fontSize: 13, color: '#8AA494', margin: 0, lineHeight: 1.6 }}>
+                Laden Sie weitere oder bessere Dokumente hoch, um eine genauere Berechnung zu erhalten. 
+                Die neue Analyse ersetzt die bisherige.
+              </p>
+            </div>
+            <a href={`/app/upload?antrag=${app.id}`} style={{
+              display: 'inline-block', background: '#FFF', border: '1px solid #E2E8E5',
+              color: '#1A3C2B', fontWeight: 600, padding: '10px 24px', borderRadius: 8,
+              textDecoration: 'none', fontSize: 14, whiteSpace: 'nowrap',
+            }}>
+              Weitere Dokumente hochladen →
             </a>
           </div>
         </>
