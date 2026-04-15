@@ -432,6 +432,47 @@ export default function AntragDetailPage({ params }) {
         </>
       )}
 
+      {/* === STATUS: Unterschrift nötig === */}
+      {app.status === 'signature_pending' && (
+        <div style={{ textAlign: 'center', padding: '32px 0' }}>
+          <div style={{ marginBottom: 16 }}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#E2C044" strokeWidth="1.5"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+          </div>
+          <h2 style={{ fontSize: 20, marginBottom: 8 }}>Zahlung erhalten – Vollmacht unterschreiben</h2>
+          <p style={{ color: '#8AA494', maxWidth: 440, margin: '0 auto 24px', lineHeight: 1.6 }}>
+            Ihre Zahlung von {PRICING.baseFeeLabel} wurde bestätigt. Im nächsten Schritt unterschreiben Sie die Vollmacht, damit wir Ihren Antrag auf {app.leistung_name} bei der Behörde einreichen können.
+          </p>
+          <a href={`/app/signatur/${app.id}`} style={{
+            display: 'inline-block', background: '#1A3C2B', color: '#FFF', fontWeight: 600,
+            fontSize: 18, padding: '14px 40px', borderRadius: 8, textDecoration: 'none',
+          }}>
+            Jetzt unterschreiben →
+          </a>
+          <div style={{ marginTop: 24 }}>
+            <NextSteps app={app} status={app.status} />
+          </div>
+        </div>
+      )}
+
+      {/* === STATUS: Zahlung offen === */}
+      {app.status === 'payment_pending' && (
+        <div style={{ textAlign: 'center', padding: '32px 0' }}>
+          <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.5 }}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#854F0B" strokeWidth="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          </div>
+          <h2 style={{ fontSize: 20, marginBottom: 8 }}>Zahlung ausstehend</h2>
+          <p style={{ color: '#8AA494', maxWidth: 400, margin: '0 auto 24px' }}>
+            Schließen Sie die Zahlung ab, um Ihren Antrag zu beauftragen.
+          </p>
+          <a href={`/app/zahlung/${app.id}`} style={{
+            display: 'inline-block', background: '#E2C044', color: '#1A3C2B', fontWeight: 600,
+            padding: '14px 40px', borderRadius: 8, textDecoration: 'none', fontSize: 16,
+          }}>
+            Jetzt bezahlen – {PRICING.baseFeeLabel} →
+          </a>
+        </div>
+      )}
+
       {/* === STATUS: Eingereicht === */}
       {app.status === 'submitted' && (
         <div style={{ textAlign: 'center', padding: '32px 0' }}>

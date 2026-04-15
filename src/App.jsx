@@ -42,6 +42,7 @@ import DokumentePage from './pages/app/DokumentePage';
 import ProfilPage from './pages/app/ProfilPage';
 import AppHilfePage from './pages/app/AppHilfePage';
 import ZahlungErfolgreichPage from './pages/app/ZahlungErfolgreichPage';
+import SignaturCallbackPage from './pages/app/SignaturCallbackPage';
 
 // === System Pages ===
 import LoginPage from './pages/system/LoginPage';
@@ -82,6 +83,7 @@ const APP_ROUTES = {
   '/app/profil': ProfilPage,
   '/app/hilfe': AppHilfePage,
   '/app/zahlung-erfolgreich': ZahlungErfolgreichPage,
+  '/app/signatur-callback': SignaturCallbackPage,
 };
 
 const AUTH_ROUTES = {
