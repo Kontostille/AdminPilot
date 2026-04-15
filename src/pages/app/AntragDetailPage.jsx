@@ -475,16 +475,55 @@ export default function AntragDetailPage({ params }) {
 
       {/* === STATUS: Eingereicht === */}
       {app.status === 'submitted' && (
-        <div style={{ textAlign: 'center', padding: '32px 0' }}>
-          <div style={{ marginBottom: 16 }}><AppIcon name="send" size={48} color="#0F6E56" /></div>
-          <h2 style={{ fontSize: 20, marginBottom: 8 }}>Ihr Antrag wurde eingereicht</h2>
-          <p style={{ color: '#8AA494', maxWidth: 400, margin: '0 auto 16px' }}>
-            Der Antrag auf {app.leistung_name} wurde bei der zuständigen Behörde eingereicht.
-            Die Bearbeitung dauert in der Regel 3–8 Wochen.
-          </p>
-          <p style={{ fontSize: 14, color: '#1A3C2B', fontWeight: 600 }}>
-            Wir informieren Sie per E-Mail, sobald es ein Update gibt.
-          </p>
+        <div>
+          <div style={{ textAlign: 'center', padding: '32px 0' }}>
+            <div style={{ marginBottom: 16 }}><AppIcon name="send" size={48} color="#0F6E56" /></div>
+            <h2 style={{ fontSize: 20, marginBottom: 8 }}>Ihr Antrag wird bearbeitet</h2>
+            <p style={{ color: '#8AA494', maxWidth: 400, margin: '0 auto 16px' }}>
+              Der Antrag auf {app.leistung_name} wird bei der zuständigen Behörde eingereicht.
+              Die Bearbeitung dauert in der Regel 3–8 Wochen.
+            </p>
+            <p style={{ fontSize: 14, color: '#1A3C2B', fontWeight: 600 }}>
+              Wir informieren Sie per E-Mail, sobald es ein Update gibt.
+            </p>
+          </div>
+
+          {/* Antragsstatus-Karte */}
+          {app.generated_antrag && !app.generated_antrag.parse_error && (
+            <div style={{ background: '#F8FAF9', borderRadius: 12, padding: 24, marginBottom: 24, border: '1px solid #E2E8E5' }}>
+              <h3 style={{ fontSize: 15, marginBottom: 16 }}>Antragsstatus</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13 }}>
+                <div style={{ padding: 12, background: '#FFF', borderRadius: 8 }}>
+                  <div style={{ color: '#8AA494', marginBottom: 4 }}>Leistung</div>
+                  <div style={{ fontWeight: 600, color: '#1A3C2B' }}>{app.generated_antrag.meta?.leistung || app.leistung_name}</div>
+                </div>
+                <div style={{ padding: 12, background: '#FFF', borderRadius: 8 }}>
+                  <div style={{ color: '#8AA494', marginBottom: 4 }}>Bundesland</div>
+                  <div style={{ fontWeight: 600, color: '#1A3C2B' }}>{app.generated_antrag.meta?.bundesland || '–'}</div>
+                </div>
+                <div style={{ padding: 12, background: '#FFF', borderRadius: 8 }}>
+                  <div style={{ color: '#8AA494', marginBottom: 4 }}>Felder ausgefüllt</div>
+                  <div style={{ fontWeight: 600, color: '#0F6E56' }}>{Object.keys(app.generated_antrag.ausgefuellte_felder || {}).length} von {Object.keys(app.generated_antrag.ausgefuellte_felder || {}).length + (app.generated_antrag.fehlende_felder || []).length}</div>
+                </div>
+                <div style={{ padding: 12, background: '#FFF', borderRadius: 8 }}>
+                  <div style={{ color: '#8AA494', marginBottom: 4 }}>Zuständige Behörde</div>
+                  <div style={{ fontWeight: 600, color: '#1A3C2B', fontSize: 12 }}>{app.generated_antrag.einreichung?.behoerde || '–'}</div>
+                </div>
+              </div>
+
+              {app.generated_antrag.fehlende_felder?.length > 0 && (
+                <div style={{ marginTop: 16, padding: 12, background: '#FFF8E7', borderRadius: 8, border: '1px solid #E8D5A3' }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#8B6914', marginBottom: 6 }}>
+                    Fehlende Angaben ({app.generated_antrag.fehlende_felder.length})
+                  </div>
+                  <p style={{ fontSize: 12, color: '#8B6914', margin: 0 }}>
+                    Unser Team wird Sie kontaktieren, um die fehlenden Angaben zu ergänzen.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           <NextSteps app={app} status={app.status} />
         </div>
       )}

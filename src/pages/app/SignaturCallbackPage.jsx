@@ -25,27 +25,13 @@ export default function SignaturCallbackPage() {
           message: 'Vollmacht digital unterzeichnet. Antrag wird bei der Behörde eingereicht.',
         });
 
-        // Auto-Antrag generieren
+        // Auto-Antrag generieren (API lädt alle Daten selbst aus Supabase)
         try {
-          const { data: docs } = await supabase.from('documents')
-            .select('ocr_result').eq('application_id', antragId).eq('ocr_status', 'complete');
-
-          const { data: appData } = await supabase.from('applications')
-            .select('leistung_id, leistung_name').eq('id', antragId).single();
-
-          if (docs && docs.length > 0 && appData) {
-            const ocrData = docs.map(d => d.ocr_result?.extracted || {});
-            await fetch('/api/generate-antrag', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                application_id: antragId,
-                leistung_id: appData.leistung_id,
-                ocr_data: ocrData,
-                user_data: { name: user.fullName, email: user.primaryEmailAddress?.emailAddress },
-              }),
-            });
-          }
+          await fetch('/api/generate-antrag', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ application_id: antragId }),
+          });
         } catch (e) { console.warn('Auto-Antrag generation failed:', e); }
 
         setStatus('signed');

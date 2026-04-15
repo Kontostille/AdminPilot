@@ -43,6 +43,12 @@ export default function SignaturPage({ params }) {
           window.location.href = data.signing_url;
         } else {
           // Simulations-Modus: Direkt als unterschrieben markiert
+          // Auto-Antrag im Hintergrund generieren
+          fetch('/api/generate-antrag', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ application_id: app.id }),
+          }).catch(() => {});
           setDone(true);
         }
       } else {

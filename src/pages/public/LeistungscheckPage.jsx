@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { SEOHead, DisclaimerBanner, UmzugBanner } from '../../components/shared/index.jsx';
 import Button from '../../components/shared/Button.jsx';
 import LeistungIcon from '../../components/shared/LeistungIcon.jsx';
+import { bundeslandFromPLZ, getBundeslandName } from '../../data/bundeslaender.js';
 
 // Fragen – dynamisch je nach Situation
 function getQuestions(answers) {
@@ -16,6 +17,12 @@ function getQuestions(answers) {
         { value: 'alleinerziehend', label: 'Alleinerziehend', desc: 'Ich erziehe mein(e) Kind(er) allein' },
         { value: 'elternzeit', label: 'In Elternzeit', desc: 'Ich bin gerade in Elternzeit oder Mutterschutz' },
       ],
+    },
+    {
+      id: 'plz',
+      question: 'Wie lautet Ihre Postleitzahl?',
+      subtitle: 'Wir benötigen Ihre PLZ, um die richtigen Formulare für Ihr Bundesland auszuwählen.',
+      type: 'plz',
     },
     {
       id: 'haushalt',
@@ -263,6 +270,59 @@ function SliderQuestion({ q, value, onChange, onNext }) {
   );
 }
 
+function PLZQuestion({ value, onChange, onNext }) {
+  const detected = value.length === 5 ? bundeslandFromPLZ(value) : null;
+  const blName = detected ? getBundeslandName(detected) : null;
+
+  const handleChange = (e) => {
+    const raw = e.target.value.replace(/\D/g, '').substring(0, 5);
+    onChange(raw);
+  };
+
+  return (
+    <div>
+      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)' }}>
+        Wir benötigen Ihre PLZ, um die richtigen Formulare für Ihr Bundesland auszuwählen.
+      </p>
+      <div style={{ textAlign: 'center', marginBottom: 'var(--space-4)' }}>
+        <input
+          type="text"
+          inputMode="numeric"
+          maxLength={5}
+          value={value}
+          onChange={handleChange}
+          placeholder="z.B. 80331"
+          autoFocus
+          style={{
+            fontSize: 'var(--text-3xl)', fontWeight: 700, color: 'var(--ap-dark)',
+            fontFamily: 'var(--font-mono)', border: 'none', borderBottom: '2px solid var(--ap-gold)',
+            background: 'transparent', textAlign: 'center', width: '6ch',
+            outline: 'none', padding: '4px 2px', letterSpacing: '0.1em',
+          }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && value.length === 5) onNext(); }}
+        />
+      </div>
+      {blName && (
+        <div style={{
+          textAlign: 'center', marginBottom: 'var(--space-4)',
+          padding: '10px 16px', background: 'var(--ap-mint)', borderRadius: 8,
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          marginLeft: 'auto', marginRight: 'auto', width: 'fit-content',
+        }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1A3C2B" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--ap-dark)' }}>{blName}</span>
+        </div>
+      )}
+      {!blName && value.length > 0 && value.length < 5 && (
+        <p style={{ textAlign: 'center', fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>Bitte 5 Ziffern eingeben</p>
+      )}
+      <div style={{ marginTop: 'var(--space-6)', textAlign: 'center' }}>
+        <Button onClick={onNext} disabled={value.length !== 5}>Weiter →</Button>
+      </div>
+    </div>
+  );
+}
+
 export default function LeistungscheckPage() {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({});
@@ -349,7 +409,13 @@ export default function LeistungscheckPage() {
             <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)' }}>{currentQ.subtitle}</p>
           )}
 
-          {currentQ.type === 'slider' ? (
+          {currentQ.type === 'plz' ? (
+            <PLZQuestion
+              value={answers[currentQ.id] || ''}
+              onChange={(v) => setAnswers({ ...answers, [currentQ.id]: v })}
+              onNext={() => isLast ? setShowResult(true) : setStep(step + 1)}
+            />
+          ) : currentQ.type === 'slider' ? (
             <SliderQuestion
               q={currentQ}
               value={answers[currentQ.id] || currentQ.default}
