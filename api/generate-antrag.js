@@ -1,10 +1,12 @@
 export const config = { runtime: 'edge' };
 
 // =====================================================
-// AUTO-ANTRAGSERSTELLUNG via Claude Sonnet
+// AUTO-ANTRAGSERSTELLUNG v2 – mit intelligentem Fallback
 // =====================================================
-// Nimmt OCR-Daten + Bundesland → generiert ausgefüllte Formularfelder
-// Wird nach digitaler Signatur automatisch aufgerufen
+// 1. Prüft ob PDF-Template in Supabase vorhanden
+// 2. Wenn ja: Mappt OCR-Daten auf Formularfelder
+// 3. Wenn nein: Generiert formellen Antrag als Anschreiben
+// 4. Speichert Ergebnis in applications.generated_antrag
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -14,354 +16,210 @@ async function supaFetch(path, options = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...options,
     headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation',
+      'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json', 'Prefer': 'return=representation',
       ...options.headers,
     },
   });
   return res.json();
 }
 
-// === FORMULAR-TEMPLATES (Server-Seite, identisch mit bundeslaender.js) ===
-const TEMPLATES = {
+async function templateExists(path) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/public/templates/${path}`, {
+      method: 'HEAD', headers: { 'apikey': SUPABASE_KEY },
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
+// === LEISTUNGS-KONFIGURATION ===
+const L = {
   kindergeld: {
-    name: 'Antrag auf Kindergeld (KG1)',
+    name: 'Kindergeld', kennung: 'KG1',
     behoerde: 'Familienkasse der Bundesagentur für Arbeit',
     typ: 'bundesweit',
-    einreichung: { online: 'https://www.familienkasse.de', email_muster: '{stadt}@familienkasse.de' },
-    formulare: ['KG1 (Hauptantrag)', 'KG1-AnK (Anlage Kind, pro Kind 1x)'],
-    felder: {
-      antragsteller_familienname: 'Familienname des Antragstellers',
-      antragsteller_vorname: 'Vorname des Antragstellers',
-      antragsteller_geburtsdatum: 'Geburtsdatum (TT.MM.JJJJ)',
-      antragsteller_adresse: 'Straße, Hausnummer',
-      antragsteller_plz_ort: 'PLZ und Wohnort',
-      antragsteller_steuer_id: 'Steuer-Identifikationsnummer',
-      antragsteller_staatsangehoerigkeit: 'Staatsangehörigkeit',
-      antragsteller_familienstand: 'Familienstand',
-      ehepartner_name: 'Name des Ehepartners/Lebenspartners',
-      ehepartner_geburtsdatum: 'Geburtsdatum Ehepartner',
-      kind_1_name: 'Name Kind 1',
-      kind_1_geburtsdatum: 'Geburtsdatum Kind 1',
-      kind_1_steuer_id: 'Steuer-ID Kind 1',
-      kind_2_name: 'Name Kind 2 (falls vorhanden)',
-      kind_2_geburtsdatum: 'Geburtsdatum Kind 2',
-      kind_2_steuer_id: 'Steuer-ID Kind 2',
-      bankverbindung_iban: 'IBAN für Auszahlung',
-      bankverbindung_kontoinhaber: 'Kontoinhaber',
-    },
+    templates: ['bundesweit/KG1_Kindergeld.pdf'],
+    portal: 'https://www.arbeitsagentur.de/familie-und-kinder/infos-rund-um-kindergeld/kindergeld-anspruch-hoehe-dauer',
+    felder: ['Familienname','Vorname','Geburtsdatum (TT.MM.JJJJ)','Geburtsname','Staatsangehörigkeit','Familienstand','Straße + Hausnummer','PLZ','Wohnort','Steuer-ID','Telefon','Name Ehepartner/Partner','Geburtsdatum Ehepartner','IBAN','Kontoinhaber','Pro Kind: Name, Vorname, Geburtsdatum, Steuer-ID, wohnt im Haushalt (ja/nein)'],
+    nachweise: ['Geburtsurkunde Kind (Kopie)','Steuer-ID Antragsteller + Kind','Personalausweis (Kopie)'],
   },
   kinderzuschlag: {
-    name: 'Antrag auf Kinderzuschlag (KiZ1)',
+    name: 'Kinderzuschlag', kennung: 'KiZ1',
     behoerde: 'Familienkasse der Bundesagentur für Arbeit',
     typ: 'bundesweit',
-    einreichung: { online: 'https://kiz-digital.de', email_muster: '{stadt}@familienkasse.de' },
-    formulare: ['KiZ1 (Hauptantrag)', 'KiZ1-AnA (Anlage Antragsteller)', 'KiZ1-AnK (Anlage Kind, pro Kind)'],
-    felder: {
-      antragsteller_familienname: 'Familienname',
-      antragsteller_vorname: 'Vorname',
-      antragsteller_geburtsdatum: 'Geburtsdatum',
-      antragsteller_adresse: 'Anschrift (Straße, Hausnummer)',
-      antragsteller_plz_ort: 'PLZ und Ort',
-      kindergeld_nr: 'Kindergeld-Nummer (falls vorhanden)',
-      bruttoeinkommen_antragsteller: 'Bruttoeinkommen Antragsteller (Monat)',
-      nettoeinkommen_antragsteller: 'Nettoeinkommen Antragsteller (Monat)',
-      bruttoeinkommen_partner: 'Bruttoeinkommen Partner (Monat)',
-      nettoeinkommen_partner: 'Nettoeinkommen Partner (Monat)',
-      kaltmiete: 'Kaltmiete (Monat)',
-      warmmiete: 'Warmmiete inkl. Nebenkosten (Monat)',
-      heizkosten: 'Heizkosten (Monat)',
-      kind_1_name: 'Name Kind 1',
-      kind_1_geburtsdatum: 'Geburtsdatum Kind 1',
-      kind_2_name: 'Name Kind 2',
-      kind_2_geburtsdatum: 'Geburtsdatum Kind 2',
-      bankverbindung_iban: 'IBAN',
-    },
+    templates: ['bundesweit/KiZ1_Kinderzuschlag.pdf'],
+    portal: 'https://kiz-digital.de',
+    felder: ['Familienname','Vorname','Geburtsdatum','Adresse','Kindergeld-Nummer','Bruttoeinkommen Antragsteller (EUR/Monat)','Nettoeinkommen Antragsteller','Bruttoeinkommen Partner','Nettoeinkommen Partner','Kaltmiete (EUR)','Nebenkosten (EUR)','Heizkosten (EUR)','Warmmiete gesamt (EUR)','IBAN','Pro Kind: Name, Geburtsdatum'],
+    nachweise: ['Einkommensnachweise letzte 6 Monate','Mietvertrag/Mietbescheinigung','Kontoauszüge letzte 3 Monate','Kindergeldbescheid'],
   },
   'kv-zuschuss': {
-    name: 'Antrag auf Zuschuss zur KV nach §106 SGB VI (R0820)',
+    name: 'Zuschuss zur KV (§106 SGB VI)', kennung: 'R0820',
     behoerde: 'Deutsche Rentenversicherung',
     typ: 'bundesweit',
-    einreichung: { online: 'https://www.eservice-drv.de', email_muster: 'drv@deutsche-rentenversicherung.de' },
-    formulare: ['R0820 (Antrag auf Zuschuss zur Krankenversicherung)'],
-    felder: {
-      antragsteller_name: 'Familienname, Vorname',
-      versicherungsnummer: 'Rentenversicherungsnummer',
-      antragsteller_geburtsdatum: 'Geburtsdatum',
-      antragsteller_adresse: 'Anschrift',
-      antragsteller_plz_ort: 'PLZ und Ort',
-      krankenkasse_name: 'Name der Krankenkasse',
-      versicherungsart: 'freiwillig gesetzlich ODER privat versichert',
-      monatlicher_kv_beitrag: 'Monatlicher KV-Beitrag in EUR',
-      bruttorente_monatlich: 'Monatliche Bruttorente in EUR',
-      rentenbeginn: 'Rentenbeginn (Datum)',
-    },
+    templates: ['bundesweit/R0820_KV_Zuschuss.pdf'],
+    portal: 'https://www.eservice-drv.de/eantrag/hinweis-ohne-karte-direkt.seam?formular=r0820',
+    vollmacht_feld: true,
+    felder: ['Familienname, Vorname','Rentenversicherungsnummer','Geburtsdatum','Adresse','Bevollmächtigter: ALEVOR Mittelstandspartner GmbH, Titurelstr. 10, 81925 München','Krankenkasse','Versicherungsart (freiwillig gesetzlich/privat)','Monatlicher KV-Beitrag (EUR)','Bruttorente (EUR/Monat)','Rentenbeginn'],
+    nachweise: ['Rentenbescheid (Kopie)','KV-Mitgliedsbescheinigung','Bei privater KV: Beitragsnachweis','Vollmacht'],
   },
   kindererziehungszeiten: {
-    name: 'Antrag auf Feststellung von Kindererziehungszeiten (V0800)',
+    name: 'Kindererziehungszeiten', kennung: 'V0800',
     behoerde: 'Deutsche Rentenversicherung',
     typ: 'bundesweit',
-    einreichung: { online: 'https://www.eservice-drv.de/eantrag', email_muster: 'drv@deutsche-rentenversicherung.de' },
-    formulare: ['V0800 (Hauptantrag)', 'V0805 (Angaben zur Kindererziehung, pro Kind)'],
-    felder: {
-      antragsteller_name: 'Familienname, Vorname',
-      versicherungsnummer: 'Rentenversicherungsnummer',
-      antragsteller_geburtsdatum: 'Geburtsdatum',
-      antragsteller_adresse: 'Anschrift',
-      kind_1_name: 'Name Kind 1',
-      kind_1_geburtsdatum: 'Geburtsdatum Kind 1',
-      kind_1_erziehung_von_bis: 'Erziehungszeitraum Kind 1',
-      kind_2_name: 'Name Kind 2',
-      kind_2_geburtsdatum: 'Geburtsdatum Kind 2',
-      kind_2_erziehung_von_bis: 'Erziehungszeitraum Kind 2',
-    },
+    templates: ['bundesweit/V0800_Kindererziehungszeiten.pdf'],
+    portal: 'https://www.eservice-drv.de/eantrag/hinweis-ohne-karte-direkt.seam?formular=v0800',
+    felder: ['Familienname, Vorname','Rentenversicherungsnummer','Geburtsdatum','Adresse','Pro Kind: Name, Geburtsdatum, von Geburt an erzogen (ja/nein)'],
+    nachweise: ['Geburtsurkunden Kinder (Kopie)','Rentenversicherungsnummer'],
   },
   'em-zuschlag': {
-    name: 'EM-Rentenzuschlag (automatisch)',
+    name: 'EM-Rentenzuschlag', kennung: 'automatisch',
     behoerde: 'Deutsche Rentenversicherung',
-    typ: 'bundesweit',
-    formulare: [],
-    hinweis: 'Wird automatisch von der DRV bei der Rentenberechnung geprüft. Kein separater Antrag nötig. Empfehlung: Kontenklärung (V0100) durchführen lassen.',
-    felder: {},
+    typ: 'kein_antrag', templates: [], felder: [], nachweise: [],
+    hinweis: 'Wird automatisch von der DRV geprüft. Kein Antrag nötig. Empfehlung: Kontenklärung (V0100) beantragen.',
   },
   wohngeld: {
-    name: 'Wohngeldantrag (Mietzuschuss)',
+    name: 'Wohngeld (Mietzuschuss)', kennung: 'WG-MZ',
     behoerde: 'Wohngeldbehörde der zuständigen Gemeinde/Stadt',
-    typ: 'land',
-    einreichung: { online: null, email: true },
-    formulare: ['Wohngeldantrag Mietzuschuss (landesspezifisch)', 'Mietbescheinigung (vom Vermieter)'],
-    felder: {
-      antragsteller_familienname: 'Familienname',
-      antragsteller_vorname: 'Vorname',
-      antragsteller_geburtsdatum: 'Geburtsdatum',
-      antragsteller_adresse: 'Anschrift der Wohnung',
-      antragsteller_plz_ort: 'PLZ und Ort',
-      haushaltsmitglieder_anzahl: 'Anzahl Personen im Haushalt',
-      haushaltsmitglieder_namen: 'Namen + Geburtsdaten aller Haushaltsmitglieder',
-      bruttoeinkommen_gesamt: 'Bruttoeinkommen aller Haushaltsmitglieder (Monat)',
-      nettoeinkommen_gesamt: 'Nettoeinkommen aller Haushaltsmitglieder (Monat)',
-      kaltmiete: 'Kaltmiete (Monat)',
-      nebenkosten: 'Nebenkosten ohne Heizung (Monat)',
-      heizkosten: 'Heizkosten (Monat)',
-      warmmiete_gesamt: 'Gesamte Warmmiete (Monat)',
-      wohnflaeche_qm: 'Wohnfläche in m²',
-      anzahl_raeume: 'Anzahl der Zimmer',
-      einzugsdatum: 'Einzugsdatum',
-      vermieter_name: 'Name des Vermieters',
-      vermieter_adresse: 'Adresse des Vermieters',
-      bankverbindung_iban: 'IBAN für Auszahlung',
-    },
+    typ: 'land', template_pfad: 'wohngeld/{bl}.pdf',
+    felder: ['Familienname','Vorname','Geburtsdatum','Adresse der Wohnung','Personen im Haushalt','Name + Geburtsdatum aller Haushaltsmitglieder','Bruttoeinkommen Haushalt (EUR/Monat)','Nettoeinkommen Haushalt','Bruttorente (falls Rentner)','Kaltmiete (EUR)','Nebenkosten ohne Heizung (EUR)','Heizkosten (EUR)','Warmmiete gesamt (EUR)','Wohnfläche (m²)','Anzahl Zimmer','Einzugsdatum','Vermieter Name + Adresse','IBAN'],
+    nachweise: ['Mietvertrag (Kopie)','Mietbescheinigung (vom Vermieter)','Einkommensnachweise (3 Monate)','Rentenbescheid (falls Rentner)','Personalausweis (Kopie)'],
   },
   elterngeld: {
-    name: 'Elterngeldantrag',
+    name: 'Elterngeld', kennung: 'EG',
     behoerde: 'Landeselterngeldstelle',
-    typ: 'land',
-    einreichung: { online: 'https://www.elterngeld-digital.de', email: true },
-    formulare: ['Elterngeldantrag (landesspezifisch)', 'Geburtsurkunde', 'Einkommensnachweise'],
-    felder: {
-      antragsteller_name: 'Familienname, Vorname',
-      antragsteller_geburtsdatum: 'Geburtsdatum',
-      antragsteller_adresse: 'Anschrift',
-      antragsteller_plz_ort: 'PLZ und Ort',
-      antragsteller_steuer_id: 'Steuer-ID',
-      kind_name: 'Name des Kindes',
-      kind_geburtsdatum: 'Geburtsdatum des Kindes',
-      bruttoeinkommen_vor_geburt: 'Bruttoeinkommen 12 Monate vor Geburt (Monat)',
-      arbeitgeber_name: 'Arbeitgeber',
-      elternzeit_von: 'Elternzeit von (Datum)',
-      elternzeit_bis: 'Elternzeit bis (Datum)',
-      basiselterngeld_monate: 'Gewünschte Monate BasisElterngeld',
-      elterngeldplus_monate: 'Gewünschte Monate ElterngeldPlus',
-      bankverbindung_iban: 'IBAN',
-    },
+    typ: 'land', template_pfad: 'elterngeld/{bl}.pdf',
+    portal: 'https://www.elterngeld-digital.de',
+    felder: ['Familienname','Vorname','Geburtsdatum','Adresse','Steuer-ID','Name des Kindes','Geburtsdatum Kind','Bruttoeinkommen 12 Mon. vor Geburt (EUR/Monat)','Arbeitgeber','Elternzeit von-bis','Monate BasisElterngeld','Monate ElterngeldPlus (optional)','IBAN'],
+    nachweise: ['Geburtsurkunde Kind (ORIGINAL!)','Bescheinigung Mutterschaftsgeld','Arbeitgeberbescheinigung','Gehaltsabrechnungen 12 Monate'],
+    hinweis: 'Elterngeldstellen verlangen oft ORIGINALE Geburtsurkunde per Post.',
   },
   'bildung-teilhabe': {
-    name: 'Antrag auf Leistungen für Bildung und Teilhabe',
-    behoerde: 'Sozialbürgerhaus / Jobcenter der Kommune',
-    typ: 'kommune',
-    einreichung: { online: null, email: true },
-    formulare: ['BuT-Antrag (kommunal unterschiedlich)'],
-    felder: {
-      antragsteller_name: 'Name Antragsteller (Elternteil)',
-      antragsteller_adresse: 'Anschrift',
-      antragsteller_plz_ort: 'PLZ und Ort',
-      leistungsbezug: 'Art des Leistungsbezugs (Wohngeld, KiZ, Bürgergeld)',
-      aktenzeichen: 'Aktenzeichen / Bescheid-Nr.',
-      kind_name: 'Name des Kindes',
-      kind_geburtsdatum: 'Geburtsdatum',
-      kind_schule: 'Name und Adresse der Schule/Kita',
-      beantragte_leistungen: 'Schulbedarf, Ausflüge, Mittagessen, Nachhilfe, Teilhabe',
-    },
+    name: 'Bildung und Teilhabe', kennung: 'BuT',
+    behoerde: 'Sozialbürgerhaus / Jobcenter',
+    typ: 'kommune', template_pfad: 'but/{plz2}.pdf',
+    formlos: true,
+    felder: ['Name Antragsteller','Adresse','Leistungsbezug (Wohngeld/KiZ/Bürgergeld)','Aktenzeichen','Name Kind','Geburtsdatum Kind','Schule/Kita (Name + Adresse)','Beantragte Leistungen (Schulbedarf, Ausflüge, Mittagessen, Nachhilfe, Teilhabe)'],
+    nachweise: ['Leistungsbescheid (Wohngeld/KiZ/Bürgergeld)','Schulbescheinigung'],
   },
 };
 
-const BUNDESLAND_NAMES = {
-  bw: 'Baden-Württemberg', by: 'Bayern', be: 'Berlin', bb: 'Brandenburg',
-  hb: 'Bremen', hh: 'Hamburg', he: 'Hessen', mv: 'Mecklenburg-Vorpommern',
-  ni: 'Niedersachsen', nw: 'Nordrhein-Westfalen', rp: 'Rheinland-Pfalz',
-  sl: 'Saarland', sn: 'Sachsen', st: 'Sachsen-Anhalt',
-  sh: 'Schleswig-Holstein', th: 'Thüringen',
-};
-
-// =====================================================
-// MAIN HANDLER
-// =====================================================
+const BL = { bw:'Baden-Württemberg',by:'Bayern',be:'Berlin',bb:'Brandenburg',hb:'Bremen',hh:'Hamburg',he:'Hessen',mv:'Mecklenburg-Vorpommern',ni:'Niedersachsen',nw:'Nordrhein-Westfalen',rp:'Rheinland-Pfalz',sl:'Saarland',sn:'Sachsen',st:'Sachsen-Anhalt',sh:'Schleswig-Holstein',th:'Thüringen' };
 
 export default async function handler(request) {
   if (request.method !== 'POST') return Response.json({ error: 'POST only' }, { status: 405 });
-  if (!ANTHROPIC_API_KEY) return Response.json({ error: 'API key missing' }, { status: 500 });
+  if (!ANTHROPIC_API_KEY) return Response.json({ error: 'ANTHROPIC_API_KEY missing' }, { status: 500 });
 
   try {
     const { application_id } = await request.json();
     if (!application_id) return Response.json({ success: false, error: 'application_id required' });
 
-    // 1. Antragsdaten aus Supabase laden
-    const [appResult] = await supaFetch(`applications?id=eq.${application_id}&select=*`);
-    if (!appResult) return Response.json({ success: false, error: 'Application not found' });
+    const [app] = await supaFetch(`applications?id=eq.${application_id}&select=*`);
+    if (!app) return Response.json({ success: false, error: 'Application not found' });
 
-    const app = appResult;
-    const leistungId = app.leistung_id;
-    const bundesland = app.bundesland;
-    const plz = app.plz;
+    const cfg = L[app.leistung_id];
+    if (!cfg) return Response.json({ success: false, error: `Unknown: ${app.leistung_id}` });
 
-    // 2. OCR-Daten laden
-    const docs = await supaFetch(`documents?application_id=eq.${application_id}&ocr_status=eq.complete&select=ocr_result,file_type`);
-    const ocrData = (docs || []).map(d => d.ocr_result).filter(Boolean);
-
-    // 3. Template nachschlagen
-    const template = TEMPLATES[leistungId];
-    if (!template) return Response.json({ success: false, error: `No template for: ${leistungId}` });
-
-    // EM-Zuschlag: Kein Antrag nötig
-    if (leistungId === 'em-zuschlag') {
-      const result = {
-        hinweis: template.hinweis,
-        formulare: [],
-        aktion: 'Nutzer informieren: EM-Zuschlag wird automatisch von der DRV geprüft.',
-      };
-      await supaFetch(`applications?id=eq.${application_id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ generated_antrag: result, updated_at: new Date().toISOString() }),
-      });
-      return Response.json({ success: true, antrag: result });
+    // Kein Antrag nötig
+    if (cfg.typ === 'kein_antrag') {
+      const r = { modus: 'kein_antrag', hinweis: cfg.hinweis, meta: { leistung: cfg.name } };
+      await supaFetch(`applications?id=eq.${application_id}`, { method: 'PATCH', body: JSON.stringify({ generated_antrag: r, updated_at: new Date().toISOString() }) });
+      return Response.json({ success: true, antrag: r });
     }
 
-    // 4. Claude Sonnet aufrufen
-    const bundeslandName = BUNDESLAND_NAMES[bundesland] || bundesland;
-    const felderListe = Object.entries(template.felder)
-      .map(([key, desc]) => `- ${key}: ${desc}`)
-      .join('\n');
+    // OCR laden
+    const docs = await supaFetch(`documents?application_id=eq.${application_id}&ocr_status=eq.complete&select=ocr_result`);
+    const ocr = (docs || []).map(d => d.ocr_result).filter(Boolean);
 
-    const prompt = `Du bist ein Experte für deutsche Sozialleistungsanträge. Fülle die Formularfelder für folgenden Antrag aus.
+    // Template prüfen
+    let tplPath = null;
+    let hasTpl = false;
+    if (cfg.typ === 'bundesweit' && cfg.templates?.[0]) {
+      tplPath = cfg.templates[0];
+      hasTpl = await templateExists(tplPath);
+    } else if (cfg.template_pfad) {
+      tplPath = cfg.template_pfad.replace('{bl}', app.bundesland).replace('{plz2}', (app.plz||'').substring(0,2));
+      hasTpl = await templateExists(tplPath);
+    }
 
-== ANTRAG ==
-Leistung: ${template.name}
-Zuständige Behörde: ${template.behoerde}
-Bundesland: ${bundeslandName}
-PLZ: ${plz}
-Benötigte Formulare: ${template.formulare.join(', ')}
+    const modus = hasTpl ? 'pdf_vorhanden' : (cfg.formlos ? 'formloser_antrag' : 'anschreiben_generieren');
+    const blName = BL[app.bundesland] || app.bundesland || '';
 
-== FORMULARFELDER (alle ausfüllen, soweit Daten vorhanden) ==
-${felderListe}
+    // Claude Prompt
+    const prompt = `Du bist Experte für deutsche Sozialleistungsanträge. Erstelle einen vollständigen ${cfg.name}-Antrag.
 
-== EXTRAHIERTE DATEN AUS DOKUMENTEN (OCR) ==
-${JSON.stringify(ocrData, null, 2)}
+ANTRAG: ${cfg.name} (${cfg.kennung})
+BEHÖRDE: ${cfg.behoerde}
+BUNDESLAND: ${blName}
+PLZ: ${app.plz}
+MODUS: ${modus === 'pdf_vorhanden' ? 'PDF-Template vorhanden – alle Felder einzeln ausfüllen' : 'Kein PDF – formelles Anschreiben generieren das als eigenständiger Antrag per E-Mail funktioniert'}
 
-== AUFGABE ==
-Erstelle ein JSON-Objekt mit genau diesen Schlüsseln:
+FELDER DIE AUSGEFÜLLT WERDEN MÜSSEN:
+${cfg.felder.map((f,i) => `${i+1}. ${f}`).join('\n')}
 
-1. "ausgefuellte_felder": Objekt mit allen Feldern die du aus den OCR-Daten befüllen konntest. Schlüssel = Feldname, Wert = eingetragener Wert.
+OCR-DATEN AUS HOCHGELADENEN DOKUMENTEN:
+${JSON.stringify(ocr, null, 2)}
 
-2. "fehlende_felder": Array mit Feldnamen die NICHT aus den Dokumenten befüllt werden konnten. Diese müssen beim Nutzer nachgefragt werden.
+ERSTELLE DIESES JSON:
+{
+  "ausgefuellte_felder": { "Feldname": "Wert", ... },
+  "fehlende_felder": ["Feld1", "Feld2"],
+  "anschreiben": "Betreff: Antrag auf ${cfg.name}\\n\\nSehr geehrte Damen und Herren,\\n\\n[ausführlicher formeller Antrag mit ALLEN verfügbaren Daten, 4-8 Absätze, inkl. Unterschriftenzeile]\\n\\nMit freundlichen Grüßen\\n[Name]",
+  "behoerde_empfaenger": {
+    "name": "Zuständige Behörde für PLZ ${app.plz}",
+    "adresse": "geschätzte Adresse",
+    "email_tipp": "So findet man die E-Mail: [konkreter Tipp]"
+  },
+  "dokumente_beifuegen": ["Dok1", "Dok2"]
+}
 
-3. "anschreiben": Formelles Anschreiben an die Behörde (3-4 Sätze, in Deutsch). Format: "Sehr geehrte Damen und Herren, hiermit beantrage ich..."
-
-4. "einreichung": Objekt mit:
-   - "behoerde": Name der zuständigen Behörde
-   - "weg": "online" oder "email" (bevorzugt online wenn verfügbar)
-   - "portal_url": URL des Online-Portals (falls vorhanden)
-   - "email_hinweis": Hinweis zur E-Mail-Einreichung
-   - "adresse": Geschätzte Adresse der zuständigen Behörde basierend auf PLZ ${plz} in ${bundeslandName}
-
-5. "dokumente_beifuegen": Array mit Dokumenten die dem Antrag beigefügt werden müssen (z.B. "Personalausweis-Kopie", "Mietvertrag", "Einkommensnachweise der letzten 3 Monate")
-
-6. "hinweise": Array mit wichtigen Hinweisen für das Team (z.B. "Mietbescheinigung muss vom Vermieter ausgefüllt werden")
-
-Antworte NUR mit validem JSON. Keine Erklärungen außerhalb des JSON.`;
+Antworte NUR mit JSON.`;
 
     const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 3000,
-        messages: [{ role: 'user', content: prompt }],
-      }),
+      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 4000, messages: [{ role: 'user', content: prompt }] }),
     });
 
-    if (!apiRes.ok) {
-      const errText = await apiRes.text();
-      return Response.json({ success: false, error: `Claude API ${apiRes.status}: ${errText.substring(0, 200)}` });
-    }
+    if (!apiRes.ok) return Response.json({ success: false, error: `Claude ${apiRes.status}` });
 
-    const result = await apiRes.json();
-    const rawText = result.content?.[0]?.text || '{}';
-
-    // 5. JSON parsen
+    const raw = (await apiRes.json()).content?.[0]?.text || '{}';
     let antrag;
-    try {
-      const cleaned = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-      antrag = JSON.parse(cleaned);
-    } catch {
-      antrag = { raw_text: rawText, parse_error: true };
-    }
+    try { antrag = JSON.parse(raw.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim()); }
+    catch { antrag = { parse_error: true, raw: raw.substring(0,2000) }; }
 
-    // 6. Metadaten ergänzen
     const fullResult = {
       ...antrag,
       meta: {
-        leistung: template.name,
-        leistung_id: leistungId,
-        bundesland: bundeslandName,
-        bundesland_id: bundesland,
-        plz,
-        template_typ: template.typ,
-        formulare: template.formulare,
-        generated_at: new Date().toISOString(),
-        ocr_docs_count: ocrData.length,
+        leistung: cfg.name, leistung_id: app.leistung_id, kennung: cfg.kennung,
+        bundesland: blName, bundesland_id: app.bundesland, plz: app.plz,
+        modus, template_vorhanden: hasTpl, template_pfad: hasTpl ? tplPath : null,
+        online_portal: cfg.portal || null,
+        vollmacht_feld: cfg.vollmacht_feld || false,
+        generated_at: new Date().toISOString(), ocr_count: ocr.length,
       },
+      nachweise_erforderlich: cfg.nachweise,
+      sonder_hinweis: cfg.hinweis || null,
     };
 
-    // 7. In Supabase speichern
     await supaFetch(`applications?id=eq.${application_id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        generated_antrag: fullResult,
-        updated_at: new Date().toISOString(),
-      }),
+      method: 'PATCH', body: JSON.stringify({ generated_antrag: fullResult, updated_at: new Date().toISOString() }),
     });
 
-    // 8. Status-Update
-    const ausgefuellt = Object.keys(antrag.ausgefuellte_felder || {}).length;
-    const fehlend = (antrag.fehlende_felder || []).length;
+    const nOk = Object.keys(antrag.ausgefuellte_felder || {}).length;
+    const nMiss = (antrag.fehlende_felder || []).length;
     await supaFetch('status_updates', {
       method: 'POST',
       body: JSON.stringify({
-        application_id,
-        status: 'submitted',
-        message: `Antrag automatisch erstellt. ${ausgefuellt} Felder ausgefüllt, ${fehlend} Felder fehlen noch.`,
+        application_id, status: 'submitted',
+        message: modus === 'pdf_vorhanden'
+          ? `Antrag erstellt (${nOk} Felder ausgefüllt, ${nMiss} fehlen). Template: ${cfg.kennung}.`
+          : `Formloser Antrag generiert (${nOk} Daten erkannt). Anschreiben bereit zum Versand.`,
       }),
     });
 
     return Response.json({ success: true, antrag: fullResult });
-
-  } catch (error) {
-    return Response.json({ success: false, error: error.message });
+  } catch (e) {
+    return Response.json({ success: false, error: e.message });
   }
 }

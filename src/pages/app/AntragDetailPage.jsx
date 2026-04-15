@@ -489,40 +489,98 @@ export default function AntragDetailPage({ params }) {
           </div>
 
           {/* Antragsstatus-Karte */}
-          {app.generated_antrag && !app.generated_antrag.parse_error && (
-            <div style={{ background: '#F8FAF9', borderRadius: 12, padding: 24, marginBottom: 24, border: '1px solid #E2E8E5' }}>
-              <h3 style={{ fontSize: 15, marginBottom: 16 }}>Antragsstatus</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13 }}>
-                <div style={{ padding: 12, background: '#FFF', borderRadius: 8 }}>
-                  <div style={{ color: '#8AA494', marginBottom: 4 }}>Leistung</div>
-                  <div style={{ fontWeight: 600, color: '#1A3C2B' }}>{app.generated_antrag.meta?.leistung || app.leistung_name}</div>
+          {app.generated_antrag && !app.generated_antrag.parse_error && (() => {
+            const ga = app.generated_antrag;
+            const meta = ga.meta || {};
+            const felder = ga.ausgefuellte_felder || {};
+            const fehlend = ga.fehlende_felder || [];
+            const nachweise = ga.nachweise_erforderlich || [];
+            const modus = meta.modus;
+            const behoerde = ga.behoerde_empfaenger || {};
+
+            return (
+              <div style={{ marginBottom: 24 }}>
+                {/* Modus-Anzeige */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
+                  background: modus === 'pdf_vorhanden' ? '#E1F5EE' : '#FFF8E7',
+                  borderRadius: '8px 8px 0 0', fontSize: 13,
+                  border: `1px solid ${modus === 'pdf_vorhanden' ? '#A8D8C5' : '#E8D5A3'}`,
+                  borderBottom: 'none',
+                }}>
+                  <span style={{ fontWeight: 600, color: modus === 'pdf_vorhanden' ? '#0F6E56' : '#8B6914' }}>
+                    {modus === 'pdf_vorhanden'
+                      ? `PDF-Formular (${meta.kennung}) wird ausgefüllt`
+                      : modus === 'kein_antrag'
+                        ? 'Kein Antrag nötig'
+                        : 'Formloser Antrag per E-Mail'}
+                  </span>
+                  {meta.online_portal && (
+                    <a href={meta.online_portal} target="_blank" rel="noopener" style={{ marginLeft: 'auto', fontSize: 12, color: '#8AA494' }}>Online-Portal →</a>
+                  )}
                 </div>
-                <div style={{ padding: 12, background: '#FFF', borderRadius: 8 }}>
-                  <div style={{ color: '#8AA494', marginBottom: 4 }}>Bundesland</div>
-                  <div style={{ fontWeight: 600, color: '#1A3C2B' }}>{app.generated_antrag.meta?.bundesland || '–'}</div>
-                </div>
-                <div style={{ padding: 12, background: '#FFF', borderRadius: 8 }}>
-                  <div style={{ color: '#8AA494', marginBottom: 4 }}>Felder ausgefüllt</div>
-                  <div style={{ fontWeight: 600, color: '#0F6E56' }}>{Object.keys(app.generated_antrag.ausgefuellte_felder || {}).length} von {Object.keys(app.generated_antrag.ausgefuellte_felder || {}).length + (app.generated_antrag.fehlende_felder || []).length}</div>
-                </div>
-                <div style={{ padding: 12, background: '#FFF', borderRadius: 8 }}>
-                  <div style={{ color: '#8AA494', marginBottom: 4 }}>Zuständige Behörde</div>
-                  <div style={{ fontWeight: 600, color: '#1A3C2B', fontSize: 12 }}>{app.generated_antrag.einreichung?.behoerde || '–'}</div>
+
+                {/* Hauptkarte */}
+                <div style={{ background: '#F8FAF9', borderRadius: '0 0 12px 12px', padding: 20, border: '1px solid #E2E8E5' }}>
+                  {/* Eckdaten */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 13, marginBottom: 16 }}>
+                    <div style={{ padding: 10, background: '#FFF', borderRadius: 6 }}>
+                      <div style={{ color: '#8AA494', marginBottom: 3, fontSize: 11 }}>Leistung</div>
+                      <div style={{ fontWeight: 600, color: '#1A3C2B' }}>{meta.leistung || app.leistung_name}</div>
+                    </div>
+                    <div style={{ padding: 10, background: '#FFF', borderRadius: 6 }}>
+                      <div style={{ color: '#8AA494', marginBottom: 3, fontSize: 11 }}>Bundesland</div>
+                      <div style={{ fontWeight: 600, color: '#1A3C2B' }}>{meta.bundesland || '–'}</div>
+                    </div>
+                    <div style={{ padding: 10, background: '#FFF', borderRadius: 6 }}>
+                      <div style={{ color: '#8AA494', marginBottom: 3, fontSize: 11 }}>Daten erkannt</div>
+                      <div style={{ fontWeight: 600, color: '#0F6E56' }}>
+                        {Object.keys(felder).length} von {Object.keys(felder).length + fehlend.length}
+                      </div>
+                    </div>
+                    <div style={{ padding: 10, background: '#FFF', borderRadius: 6 }}>
+                      <div style={{ color: '#8AA494', marginBottom: 3, fontSize: 11 }}>Behörde</div>
+                      <div style={{ fontWeight: 600, color: '#1A3C2B', fontSize: 11 }}>{behoerde.name || meta.leistung_id || '–'}</div>
+                    </div>
+                  </div>
+
+                  {/* Fehlende Felder */}
+                  {fehlend.length > 0 && (
+                    <div style={{ padding: 12, background: '#FFF8E7', borderRadius: 8, border: '1px solid #E8D5A3', marginBottom: 12 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#8B6914', marginBottom: 4 }}>
+                        {fehlend.length} fehlende Angabe{fehlend.length > 1 ? 'n' : ''}
+                      </div>
+                      <p style={{ fontSize: 11, color: '#8B6914', margin: 0 }}>
+                        Unser Team wird Sie kontaktieren, um diese zu ergänzen.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Erforderliche Nachweise */}
+                  {nachweise.length > 0 && (
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#1A3C2B', marginBottom: 6 }}>Erforderliche Nachweise</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {nachweise.map((n, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, color: '#5A6B60' }}>
+                            <span style={{ color: '#8AA494', flexShrink: 0, marginTop: 1 }}>•</span>
+                            <span>{n}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sonder-Hinweis */}
+                  {ga.sonder_hinweis && (
+                    <div style={{ padding: 10, background: '#FFF5F5', borderRadius: 6, border: '1px solid #E8A3A3', fontSize: 12, color: '#C0392B' }}>
+                      {ga.sonder_hinweis}
+                    </div>
+                  )}
                 </div>
               </div>
-
-              {app.generated_antrag.fehlende_felder?.length > 0 && (
-                <div style={{ marginTop: 16, padding: 12, background: '#FFF8E7', borderRadius: 8, border: '1px solid #E8D5A3' }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#8B6914', marginBottom: 6 }}>
-                    Fehlende Angaben ({app.generated_antrag.fehlende_felder.length})
-                  </div>
-                  <p style={{ fontSize: 12, color: '#8B6914', margin: 0 }}>
-                    Unser Team wird Sie kontaktieren, um die fehlenden Angaben zu ergänzen.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+            );
+          })()}
 
           <NextSteps app={app} status={app.status} />
         </div>
