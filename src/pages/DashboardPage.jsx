@@ -7,7 +7,7 @@ import ApplicationCard from '../components/ApplicationCard';
 export default function DashboardPage() {
   const { user } = useUser();
   const supabase = useSupabase();
-  const [applications, setApplications] = useState<any[]>([]);
+  const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
