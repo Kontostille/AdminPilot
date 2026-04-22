@@ -1,17 +1,36 @@
 import { SEOHead } from '../../components/shared/index.jsx';
 export default function VollmachtPage() {
-  return (<><SEOHead title="Vollmacht & digitale Signatur" />
+  return (<><SEOHead title="Auftragserteilung" />
     <section className="section"><div className="container" style={{ maxWidth: 'var(--max-width-content)' }}>
-      <h1>Vollmacht & digitale Signatur</h1>
+      <h1>Auftragserteilung an AdminPilot</h1>
       <div style={{ lineHeight: 1.9, marginTop: 'var(--space-6)' }}>
-        <h2>Warum braucht AdminPilot eine Vollmacht?</h2>
-        <p>Damit wir den Antrag in Ihrem Namen bei der zuständigen Behörde einreichen können, benötigen wir eine Vollmacht. Diese berechtigt AdminPilot, den Antrag für Sie zu erstellen, einzureichen und den Bearbeitungsstatus zu erfragen.</p>
-        <h2>Was wird genau unterzeichnet?</h2>
-        <p>Sie erteilen AdminPilot eine zweckgebundene Vollmacht für die Antragstellung einer bestimmten Leistung (z.B. Wohngeld). Die Vollmacht ist auf diesen einen Vorgang beschränkt und erlischt nach Abschluss des Antragsverfahrens.</p>
-        <h2>Was ist eine QES?</h2>
-        <p>Die Qualifizierte Elektronische Signatur (QES) ist die rechtlich sicherste Form der digitalen Unterschrift in der EU. Sie ist einer handschriftlichen Unterschrift gleichgestellt (eIDAS-Verordnung). Die Signatur erfolgt über einen zertifizierten Anbieter (z.B. DocuSign oder Adobe Sign).</p>
-        <h2>Kann ich die Vollmacht widerrufen?</h2>
-        <p>Ja. Sie können die Vollmacht jederzeit schriftlich widerrufen. Ein bereits eingereichter Antrag kann allerdings nicht mehr zurückgenommen werden – die Behörde bearbeitet diesen unabhängig.</p>
+        <h2>Keine Vollmacht – sondern ein Auftrag</h2>
+        <p>AdminPilot reicht keine Anträge in Ihrem Namen ein. Wir benötigen deshalb <strong>keine Vollmacht</strong> von Ihnen. Was Sie uns erteilen, ist ein klar umrissener <strong>Auftrag</strong>: Auf Basis der von Ihnen bereitgestellten Dokumente und Angaben erstellen wir einen fertig ausgefüllten Antrag, den wir Ihnen zur eigenen Einreichung übergeben.</p>
+
+        <h2>Was umfasst der Auftrag?</h2>
+        <p>Mit der Nutzung von AdminPilot beauftragen Sie uns mit folgenden technischen Leistungen:</p>
+        <ul style={{ paddingLeft: 24 }}>
+          <li>Die automatische Analyse Ihrer hochgeladenen Dokumente</li>
+          <li>Die Erstellung eines fertig ausgefüllten Antragsdokuments</li>
+          <li>Die Bereitstellung einer Einreichungsanleitung mit Adresse der zuständigen Behörde</li>
+          <li>Im Plus-Paket zusätzlich: Versandmaterial, Erinnerungen und die zweite Durchsicht Ihres Bescheids</li>
+        </ul>
+
+        <h2>Was bleibt bei Ihnen?</h2>
+        <p>Die <strong>Einreichung</strong> des Antrags bei der Behörde erfolgt ausschließlich durch Sie. Dazu gehören:</p>
+        <ul style={{ paddingLeft: 24 }}>
+          <li>Die Prüfung des vorbereiteten Antragsdokuments auf Richtigkeit und Vollständigkeit</li>
+          <li>Die eigenhändige Unterschrift auf dem Antrag</li>
+          <li>Das Absenden oder persönliche Abgeben bei der zuständigen Behörde</li>
+          <li>Die Kommunikation mit der Behörde im Antragsverfahren</li>
+        </ul>
+        <p>Sie bleiben also zu jeder Zeit Antragsteller:in in eigenem Namen. AdminPilot handelt als technisches Werkzeug – vergleichbar mit einer Steuersoftware, die Ihre Steuererklärung vorbereitet, aber nicht bei Ihnen statt Ihnen beim Finanzamt einreicht.</p>
+
+        <h2>Warum dieser Unterschied wichtig ist</h2>
+        <p>Diese Abgrenzung ist rechtlich bedeutsam: AdminPilot ist eine technische Ausfüllhilfe nach § 2 Abs. 2 RDG und keine Rechtsdienstleisterin. Wir dürfen keine Anträge in fremdem Namen einreichen und tun dies deshalb ausdrücklich nicht.</p>
+
+        <h2>Können Sie den Auftrag widerrufen?</h2>
+        <p>Ja. Solange wir den fertig ausgefüllten Antrag noch nicht bereitgestellt haben, können Sie den Auftrag widerrufen und die Grundgebühr zurückfordern. Details regelt unsere <a href="/widerruf">Widerrufsbelehrung</a>.</p>
       </div>
     </div></section>
   </>);

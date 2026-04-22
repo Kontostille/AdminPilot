@@ -93,7 +93,7 @@ export default function LeistungDetailPage({ params }) {
       <section className="section" style={{ background: '#FFF' }}>
         <div className="container" style={{ maxWidth: 'var(--max-width-content)' }}>
           <h2 style={{ marginBottom: 'var(--space-6)' }}>So beantragen Sie {leistung.name} mit AdminPilot</h2>
-          {[`Fotografieren Sie die oben genannten Dokumente`, `Wir prüfen Ihren möglichen Anspruch auf ${leistung.name}`, `Sie unterschreiben digital – der Antrag wird automatisch eingereicht`].map((s, i) => (
+          {[`Fotografieren Sie die oben genannten Dokumente`, `Wir prüfen Ihren möglichen Anspruch auf ${leistung.name}`, `Sie erhalten den fertigen Antrag zum Ausdrucken und Einreichen – mit klarer Anleitung`].map((s, i) => (
             <div key={i} style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'flex-start', marginBottom: 'var(--space-3)' }}>
               <div style={{ width: 28, height: 28, borderRadius: 'var(--radius-full)', background: i === 2 ? 'var(--ap-gold)' : 'var(--ap-mint)', color: 'var(--ap-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 'var(--text-sm)', flexShrink: 0 }}>{i + 1}</div>
               <p style={{ margin: 0, lineHeight: 1.6 }}>{s}</p>

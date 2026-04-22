@@ -17,7 +17,7 @@ export default function FamilienPage() {
             Kein Geld verschenken –<br /><span style={{ color: 'var(--ap-gold)' }}>in 5 Minuten prüfen.</span>
           </h1>
           <p style={{ fontSize: 'var(--text-lg)', color: 'var(--ap-mint)', marginBottom: 'var(--space-4)', lineHeight: 1.6 }}>
-            Kindergeld, Kinderzuschlag, Wohngeld & mehr – automatisch beantragen statt stundenlang Formulare ausfüllen.
+            Kindergeld, Kinderzuschlag, Wohngeld & mehr – wir bereiten Ihren Antrag vor, Sie reichen ihn mit wenigen Klicks selbst ein.
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-8)' }}>
             <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ap-mint)', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -64,7 +64,7 @@ export default function FamilienPage() {
             <div style={{ padding: 'var(--space-6)', background: 'var(--ap-dark)', borderRadius: 'var(--radius-lg)', color: '#FFF' }}>
               <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ap-mint)', marginBottom: 'var(--space-2)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Mit AdminPilot</div>
               <div style={{ fontSize: 'var(--text-3xl)', fontWeight: 700, color: 'var(--ap-gold)' }}>5 Min.</div>
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ap-mint)' }}>Dokumente hochladen, fertig</div>
+              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ap-mint)' }}>Dokumente hochladen, Antrag bereit zum Einreichen</div>
             </div>
           </div>
         </div>
@@ -76,10 +76,13 @@ export default function FamilienPage() {
         <div className="container" style={{ maxWidth: 'var(--max-width-narrow)' }}>
           <div style={{ background: 'var(--color-bg)', borderRadius: 'var(--radius-xl)', padding: 'var(--space-8)', borderLeft: '4px solid var(--ap-gold)' }}>
             <p style={{ fontSize: 'var(--text-lg)', fontStyle: 'italic', lineHeight: 1.7, marginBottom: 'var(--space-4)' }}>
-              „Wir wussten gar nicht, dass uns Kinderzuschlag zusteht. AdminPilot hat das in 5 Minuten herausgefunden – jetzt bekommen wir jeden Monat 290 € mehr."
+              „Wir wussten gar nicht, dass Kinderzuschlag für uns in Frage kommt. AdminPilot hat uns in 5 Minuten gezeigt, wie das geht – nach Bewilligung bekommen wir jeden Monat 290 € mehr."
             </p>
             <div style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>— Thomas & Lisa S., Familie mit 2 Kindern</div>
           </div>
+          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textAlign: 'center', marginTop: 'var(--space-3)', lineHeight: 1.5 }}>
+            Einzelerfahrung. Die tatsächliche Leistungshöhe hängt von Ihrer individuellen Situation ab und wird ausschließlich von der zuständigen Behörde festgelegt.
+          </p>
         </div>
       </section>
 

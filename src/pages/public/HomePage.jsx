@@ -4,6 +4,7 @@ import { LEISTUNGEN } from '../../data/leistungen.js';
 import LeistungIcon from '../../components/shared/LeistungIcon.jsx';
 import { Link } from '../../utils/router.jsx';
 import { useState } from 'react';
+import { TESTIMONIAL_DISCLAIMER } from '../../data/siteConfig.js';
 
 function HeroSection() {
   return (
@@ -15,10 +16,10 @@ function HeroSection() {
         <div style={{ maxWidth: 640 }}>
           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--ap-mint)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 'var(--space-4)', fontWeight: 500 }}>Ihr Begleiter durch die Bürokratie</p>
           <h1 style={{ fontSize: 'var(--text-4xl)', fontWeight: 700, lineHeight: 1.15, marginBottom: 'var(--space-4)', color: '#FFF' }}>
-            Behördenanträge?<br /><span style={{ color: 'var(--ap-gold)' }}>Erledigen wir für Sie.</span>
+            Behördenanträge?<br /><span style={{ color: 'var(--ap-gold)' }}>Leichter gemacht.</span>
           </h1>
           <p style={{ fontSize: 'var(--text-lg)', color: 'var(--ap-mint)', marginBottom: 'var(--space-8)', lineHeight: 1.6, maxWidth: 520 }}>
-            Laden Sie Ihre Dokumente hoch – wir prüfen Ihren möglichen Anspruch und stellen den Antrag automatisch für Sie.
+            Laden Sie Ihre Dokumente hoch – wir bereiten Ihren Antrag vor. Einreichen tun Sie selbst, mit wenigen Klicks und klarer Anleitung.
           </p>
           <div className="hero-buttons" style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
             <Button variant="primary" size="large" to="/senioren">Ich bin Rentner/in</Button>
@@ -76,14 +77,14 @@ function StepByStep() {
   const steps = [
     { num: '01', icon: icons.camera, title: 'Dokumente fotografieren', desc: 'Rentenbescheid, Ausweis, Mietvertrag – einfach mit dem Smartphone abfotografieren.' },
     { num: '02', icon: icons.search, title: 'Analyse prüft Ihren Anspruch', desc: 'Unsere Analyse erkennt Ihre Daten und zeigt, welche Leistungen in Frage kommen könnten.' },
-    { num: '03', icon: icons.check, title: 'Antrag wird gestellt', desc: 'Sie unterschreiben digital – wir füllen den Antrag aus und reichen ihn ein.' },
+    { num: '03', icon: icons.check, title: 'Antrag vorbereitet', desc: 'Sie erhalten einen fertig ausgefüllten Antrag zum Prüfen, Unterschreiben und Einreichen – mit klarer Anleitung.' },
   ];
   return (
     <section className="section" style={{ background: 'var(--color-bg)' }}>
       <div className="container">
         <div style={{ textAlign: 'center', marginBottom: 'var(--space-10)' }}>
           <h2 style={{ marginBottom: 'var(--space-3)' }}>So einfach geht's</h2>
-          <p style={{ color: 'var(--color-text-muted)' }}>In 3 Schritten zu Ihrer Leistung – ohne Formulare, ohne Wartezeit.</p>
+          <p style={{ color: 'var(--color-text-muted)' }}>In 3 Schritten zu Ihrem fertigen Antrag – ohne stundenlang Formulare auszufüllen.</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-6)', maxWidth: 800, margin: '0 auto' }}>
           {steps.map((step, i) => (
@@ -116,11 +117,11 @@ function StepByStep() {
 
 function TestimonialSection() {
   const testimonials = [
-    { name: 'Maria K.', age: 72, type: 'Rentnerin', leistung: 'Wohngeld', quote: 'Mein Enkel hat mir AdminPilot gezeigt. Ich hätte nie gedacht, dass mir 310 € Wohngeld pro Monat zustehen. Jetzt muss ich mir weniger Sorgen machen.' },
-    { name: 'Thomas & Lisa S.', age: 34, type: 'Familie mit 2 Kindern', leistung: 'Kinderzuschlag', quote: 'Wir wussten gar nicht, dass uns Kinderzuschlag zusteht. AdminPilot hat das in 5 Minuten herausgefunden – jetzt bekommen wir 584 € mehr pro Monat.' },
-    { name: 'Gerhard M.', age: 78, type: 'Rentner', leistung: 'KV-Zuschuss', quote: 'Den KV-Zuschuss hätte ich ohne AdminPilot nie beantragt. Jetzt spare ich 218 € im Monat bei meiner Krankenversicherung.' },
-    { name: 'Sandra W.', age: 29, type: 'Alleinerziehend', leistung: 'Wohngeld + Kindergeld', quote: 'Als Alleinerziehende habe ich keine Zeit für Behördengänge. AdminPilot hat mir Wohngeld und Kinderzuschlag beantragt – zusammen 620 € im Monat.' },
-    { name: 'Helga P.', age: 81, type: 'Rentnerin', leistung: 'Kindererziehungszeiten', quote: 'Ich habe drei Kinder großgezogen und wusste nicht, dass mir dafür zusätzlich 96 € Rente pro Monat zustehen. AdminPilot hat alles für mich erledigt.' },
+    { name: 'Maria K.', age: 72, type: 'Rentnerin', leistung: 'Wohngeld', quote: 'Mein Enkel hat mir AdminPilot gezeigt. Ich hätte nie gedacht, dass mein Antrag so einfach werden kann. Nach der Bewilligung bekomme ich Wohngeld und muss mir weniger Sorgen machen.' },
+    { name: 'Thomas & Lisa S.', age: 34, type: 'Familie mit 2 Kindern', leistung: 'Kinderzuschlag', quote: 'Wir wussten gar nicht, dass Kinderzuschlag für uns in Frage kommt. AdminPilot hat uns in 5 Minuten gezeigt, wie das geht – nach Bewilligung bekommen wir 584 € mehr pro Monat.' },
+    { name: 'Gerhard M.', age: 78, type: 'Rentner', leistung: 'KV-Zuschuss', quote: 'Den KV-Zuschuss hätte ich ohne AdminPilot nie beantragt. Nach Bewilligung spare ich über 200 € im Monat bei meiner Krankenversicherung.' },
+    { name: 'Sandra W.', age: 29, type: 'Alleinerziehend', leistung: 'Wohngeld + Kindergeld', quote: 'Als Alleinerziehende habe ich keine Zeit für aufwändige Formulare. Mit AdminPilot hatte ich Wohngeld- und Kinderzuschlag-Anträge in einem Rutsch fertig – zum Einreichen nur noch abschicken.' },
+    { name: 'Helga P.', age: 81, type: 'Rentnerin', leistung: 'Kindererziehungszeiten', quote: 'Ich habe drei Kinder großgezogen und wusste nicht, dass mir dafür zusätzliche Rente zusteht. AdminPilot hat den Antrag für mich fertig ausgefüllt – einreichen musste ich ihn selbst, aber das war nach der Vorarbeit keine Sache mehr.' },
   ];
   const [active, setActive] = useState(0);
   return (
@@ -143,6 +144,9 @@ function TestimonialSection() {
             <button key={i} onClick={() => setActive(i)} style={{ width: 8, height: 8, borderRadius: 'var(--radius-full)', background: i === active ? 'var(--ap-dark)' : 'var(--ap-mint)', border: 'none', cursor: 'pointer', padding: 0 }} aria-label={`Testimonial ${i + 1}`} />
           ))}
         </div>
+        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textAlign: 'center', marginTop: 'var(--space-4)', maxWidth: 520, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
+          {TESTIMONIAL_DISCLAIMER}
+        </p>
       </div>
     </section>
   );
@@ -151,9 +155,9 @@ function TestimonialSection() {
 function FAQPreview() {
   const [openIdx, setOpenIdx] = useState(null);
   const faqs = [
-    { q: 'Was kostet der Service?', a: 'Die Grundgebühr beträgt 49 €. Bei erfolgreicher Bewilligung fällt eine Servicegebühr von 10 % der bewilligten Leistung an (nur im 1. Jahr). Wird der Antrag abgelehnt, erstatten wir die 49 € vollständig zurück.' },
-    { q: 'Sind meine Daten sicher?', a: 'Ja. DSGVO-konform auf Servern in Frankfurt. 256-Bit verschlüsselt. Wir verarbeiten keine Gesundheitsdaten.' },
-    { q: 'Wie lange dauert es?', a: 'Leistungscheck: 2–5 Minuten. Antragstellung: ca. 10 Minuten. Behördenbearbeitung: 3–8 Wochen je nach Leistung.' },
+    { q: 'Was kostet der Service?', a: 'Der Basis-Service kostet einmalig 49 € und umfasst den fertig ausgefüllten Antrag zum Selbst-Einreichen. Bei erfolgreicher Bewilligung fällt zusätzlich 10 % der bewilligten Leistung an (nur im 1. Jahr). Bei Ablehnung erstatten wir die 49 € vollständig zurück. Optional: Plus-Service +29 € mit zusätzlicher Einreichungshilfe.' },
+    { q: 'Sind meine Daten sicher?', a: 'Ja. DSGVO-konform auf Servern in Frankfurt. Verschlüsselte Übertragung. Wir verarbeiten keine Gesundheitsdaten.' },
+    { q: 'Wie lange dauert es?', a: 'Leistungscheck: 2–5 Minuten. Antragsvorbereitung: ca. 10–15 Minuten. Behördenbearbeitung: 3–8 Wochen je nach Leistung.' },
   ];
   return (
     <section className="section" style={{ background: 'var(--color-bg)' }}>
@@ -212,7 +216,7 @@ function UmzugshilfeTeaser() {
 export default function HomePage() {
   return (
     <>
-      <SEOHead title="Behördenanträge einfach & automatisch stellen" description="Wohngeld, Kindergeld, KV-Zuschuss & mehr – automatisch beantragen. Dokumente hochladen, Anspruch automatisch prüfen." keywords={['Behördenantrag online', 'Sozialleistungen beantragen', 'Wohngeld Antrag']} />
+      <SEOHead title="Behördenanträge einfacher gemacht" description="Wohngeld, Kindergeld, KV-Zuschuss & mehr: Dokumente hochladen, wir bereiten den Antrag vor – Sie reichen ihn selbst ein." keywords={['Behördenantrag online', 'Sozialleistungen beantragen', 'Wohngeld Antrag']} />
       <HeroSection />
       <LeistungswegweiserGrid />
       <StepByStep />

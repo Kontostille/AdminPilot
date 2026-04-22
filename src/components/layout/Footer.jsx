@@ -21,6 +21,7 @@ const FOOTER_LINKS = {
     { label: 'AGB', path: '/agb' },
     { label: 'Impressum', path: '/impressum' },
     { label: 'Widerruf', path: '/widerruf' },
+    { label: 'Auftragserteilung', path: '/vollmacht' },
     { label: 'Cookie-Einstellungen', action: 'cookies' },
   ],
 };
@@ -45,7 +46,7 @@ export default function Footer() {
             </div>
             <p style={{ fontSize: 'var(--text-sm)', color: 'var(--ap-mint)', lineHeight: 1.6, marginBottom: 'var(--space-4)' }}>
               Ihr Begleiter durch die Bürokratie.
-              <br />Behördenanträge einfach & automatisch.
+              <br />Behördenanträge einfacher gemacht.
             </p>
             <a href="mailto:info@adminpilot.de" style={{
               fontSize: 'var(--text-sm)', color: 'var(--ap-sage)',
