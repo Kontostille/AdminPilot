@@ -1,155 +1,182 @@
-import { useState, useEffect } from 'react';
-import { getPath, matchRoute } from './utils/router';
-import { PublicLayout, AppLayout, AuthLayout } from './components/layout/Layouts';
-import { ProtectedRoute } from './utils/auth.jsx';
-import CookieBanner from './components/shared/CookieBanner.jsx';
+// ============================================================================
+// App.jsx - Routing + Auth-Wrapper
+// ============================================================================
+// - Öffentliche Routen: Landing, Leistungen, Preise, FAQ, AGB, Datenschutz
+// - Geschützte /app/*-Routen: erfordern eingeloggten Clerk-User
+// ============================================================================
 
-// === Public Pages ===
-import HomePage from './pages/public/HomePage';
-import SeniorenPage from './pages/public/SeniorenPage';
-import FamilienPage from './pages/public/FamilienPage';
-import SoFunktioniertsPage from './pages/public/SoFunktioniertsPage';
-import LeistungenPage from './pages/public/LeistungenPage';
-import LeistungDetailPage from './pages/public/LeistungDetailPage';
-import LeistungscheckPage from './pages/public/LeistungscheckPage';
-import UeberUnsPage from './pages/public/UeberUnsPage';
-import PartnerPage from './pages/public/PartnerPage';
-import PreisePage from './pages/public/PreisePage';
-import RatgeberPage from './pages/public/RatgeberPage';
-import FAQPage from './pages/public/FAQPage';
-import KontaktPage from './pages/public/KontaktPage';
-import PressePage from './pages/public/PressePage';
-import UmzugshilfePage from './pages/public/UmzugshilfePage';
+import { ClerkProvider, SignedIn, SignedOut, SignIn, SignUp, RedirectToSignIn } from '@clerk/clerk-react';
+import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { deDE } from '@clerk/localizations';
 
-// === Legal Pages ===
-import DatenschutzPage from './pages/legal/DatenschutzPage';
-import AGBPage from './pages/legal/AGBPage';
-import ImpressumPage from './pages/legal/ImpressumPage';
-import WiderrufPage from './pages/legal/WiderrufPage';
-import VollmachtPage from './pages/legal/VollmachtPage';
-import HinweisRechtsberatungPage from './pages/legal/HinweisRechtsberatungPage';
+import './styles/adminpilot.css';
 
-// === App Pages ===
-import DashboardPage from './pages/app/DashboardPage';
-import NeuerAntragPage from './pages/app/NeuerAntragPage';
-import UploadPage from './pages/app/UploadPage';
-import AnalysePage from './pages/app/AnalysePage';
-import AntragDetailPage from './pages/app/AntragDetailPage';
-import SignaturPage from './pages/app/SignaturPage';
-import ZahlungPage from './pages/app/ZahlungPage';
-import StatusPage from './pages/app/StatusPage';
-import DokumentePage from './pages/app/DokumentePage';
-import ProfilPage from './pages/app/ProfilPage';
-import AppHilfePage from './pages/app/AppHilfePage';
-import ZahlungErfolgreichPage from './pages/app/ZahlungErfolgreichPage';
-import SignaturCallbackPage from './pages/app/SignaturCallbackPage';
+// Public pages
+import HomePage from './pages/HomePage';
+import PricingPage from './pages/PricingPage';
+import FaqPage from './pages/FaqPage';
+import GrundsicherungPage from './pages/GrundsicherungPage';
+import WohngeldPage from './pages/WohngeldPage';
+import PflegegeldPage from './pages/PflegegeldPage';
+import HowItWorksPage from './pages/HowItWorksPage';
+import AgbPage from './pages/AgbPage';
+import DatenschutzPage from './pages/DatenschutzPage';
 
-// === System Pages ===
-import LoginPage from './pages/system/LoginPage';
-import LoginVerifyPage from './pages/system/LoginVerifyPage';
-import NotFoundPage from './pages/system/NotFoundPage';
+// App pages (protected)
+import DashboardPage from './pages/DashboardPage';
+import NewApplicationPage from './pages/NewApplicationPage';
+import ApplicationDetailPage from './pages/ApplicationDetailPage';
 
-// === Route Configuration ===
-const PUBLIC_ROUTES = {
-  '/': HomePage,
-  '/senioren': SeniorenPage,
-  '/familien': FamilienPage,
-  '/so-funktionierts': SoFunktioniertsPage,
-  '/leistungen': LeistungenPage,
-  '/leistungscheck': LeistungscheckPage,
-  '/ueber-uns': UeberUnsPage,
-  '/partner': PartnerPage,
-  '/preise': PreisePage,
-  '/ratgeber': RatgeberPage,
-  '/faq': FAQPage,
-  '/kontakt': KontaktPage,
-  '/presse': PressePage,
-  '/umzugshilfe': UmzugshilfePage,
-  // Legal
-  '/datenschutz': DatenschutzPage,
-  '/agb': AGBPage,
-  '/impressum': ImpressumPage,
-  '/widerruf': WiderrufPage,
-  '/vollmacht': VollmachtPage,
-  '/hinweis-rechtsberatung': HinweisRechtsberatungPage,
-};
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
-const APP_ROUTES = {
-  '/app': DashboardPage,
-  '/app/neuer-antrag': NeuerAntragPage,
-  '/app/upload': UploadPage,
-  '/app/analyse': AnalysePage,
-  '/app/dokumente': DokumentePage,
-  '/app/profil': ProfilPage,
-  '/app/hilfe': AppHilfePage,
-  '/app/zahlung-erfolgreich': ZahlungErfolgreichPage,
-  '/app/signatur-callback': SignaturCallbackPage,
-};
+if (!CLERK_PUBLISHABLE_KEY) {
+  throw new Error('VITE_CLERK_PUBLISHABLE_KEY is required');
+}
 
-const AUTH_ROUTES = {
-  '/login': LoginPage,
-  '/login/verify': LoginVerifyPage,
-};
-
-// Dynamic routes (with params)
-const DYNAMIC_ROUTES = [
-  { pattern: '/leistungen/:slug', component: LeistungDetailPage, layout: 'public' },
-  { pattern: '/app/antrag/:id', component: AntragDetailPage, layout: 'app' },
-  { pattern: '/app/signatur/:id', component: SignaturPage, layout: 'app' },
-  { pattern: '/app/zahlung/:id', component: ZahlungPage, layout: 'app' },
-  { pattern: '/app/status/:id', component: StatusPage, layout: 'app' },
-  { pattern: '/ratgeber/:slug', component: RatgeberPage, layout: 'public' },
-];
-
-export default function App() {
-  const [path, setPath] = useState(getPath());
-
-  useEffect(() => {
-    const handleNav = () => setPath(getPath());
-    window.addEventListener('popstate', handleNav);
-    return () => window.removeEventListener('popstate', handleNav);
-  }, []);
-
-  // Scroll to top on navigation
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [path]);
-
-  // Determine which page and layout to render
-  let content = null;
-
-  // 1. Check static routes
-  if (PUBLIC_ROUTES[path]) {
-    const Page = PUBLIC_ROUTES[path];
-    content = <PublicLayout><Page /></PublicLayout>;
-  } else if (APP_ROUTES[path]) {
-    const Page = APP_ROUTES[path];
-    content = <ProtectedRoute><AppLayout><Page /></AppLayout></ProtectedRoute>;
-  } else if (AUTH_ROUTES[path]) {
-    const Page = AUTH_ROUTES[path];
-    content = <AuthLayout><Page /></AuthLayout>;
-  } else {
-    // 2. Check dynamic routes
-    for (const route of DYNAMIC_ROUTES) {
-      const params = matchRoute(route.pattern, path);
-      if (params) {
-        const Page = route.component;
-        if (route.layout === 'app') {
-          content = <ProtectedRoute><AppLayout><Page params={params} /></AppLayout></ProtectedRoute>;
-        } else {
-          content = <PublicLayout><Page params={params} /></PublicLayout>;
-        }
-        break;
-      }
-    }
-    // 3. 404
-    if (!content) content = <PublicLayout><NotFoundPage /></PublicLayout>;
-  }
-
+function PublicLayout({ children }) {
   return (
     <>
-      {content}
-      <CookieBanner />
+      <SiteHeader />
+      {children}
+      <SiteFooter />
     </>
+  );
+}
+
+function AppLayout({ children }) {
+  return (
+    <>
+      <AppHeader />
+      {children}
+    </>
+  );
+}
+
+function SiteHeader() {
+  return (
+    <header style={{ background: 'var(--ap-white)', borderBottom: '1px solid var(--ap-border)', padding: '1rem 1.5rem' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+        <Link to="/" style={{ textDecoration: 'none', fontFamily: 'var(--ap-font-display)', fontSize: '1.3rem', color: 'var(--ap-dark-forest)', fontWeight: 500 }}>
+          AdminPilot
+        </Link>
+        <nav style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <Link to="/wie-funktioniert-es" style={{ textDecoration: 'none', color: 'var(--ap-text)' }}>So funktioniert&rsquo;s</Link>
+          <Link to="/preise" style={{ textDecoration: 'none', color: 'var(--ap-text)' }}>Preise</Link>
+          <Link to="/fragen" style={{ textDecoration: 'none', color: 'var(--ap-text)' }}>Fragen</Link>
+          <SignedIn>
+            <Link to="/app" className="btn btn--ghost" style={{ padding: '0.5rem 1rem' }}>Mein Dashboard</Link>
+          </SignedIn>
+          <SignedOut>
+            <Link to="/anmelden" className="btn btn--primary" style={{ padding: '0.5rem 1rem' }}>Anmelden</Link>
+          </SignedOut>
+        </nav>
+      </div>
+    </header>
+  );
+}
+
+function AppHeader() {
+  return (
+    <header style={{ background: 'var(--ap-white)', borderBottom: '1px solid var(--ap-border)', padding: '1rem 1.5rem' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Link to="/app" style={{ textDecoration: 'none', fontFamily: 'var(--ap-font-display)', fontSize: '1.3rem', color: 'var(--ap-dark-forest)', fontWeight: 500 }}>
+          AdminPilot
+        </Link>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <Link to="/" style={{ color: 'var(--ap-text-muted)', textDecoration: 'none' }}>Zurück zur Website</Link>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function SiteFooter() {
+  return (
+    <footer style={{ background: 'var(--ap-dark-forest)', color: 'var(--ap-white)', padding: '3rem 1.5rem' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '2rem' }}>
+        <div>
+          <p style={{ fontFamily: 'var(--ap-font-display)', fontSize: '1.3rem', marginBottom: '0.5rem' }}>AdminPilot</p>
+          <p style={{ color: 'var(--ap-light-sage)', fontSize: '0.9rem' }}>
+            Ihr Begleiter durch die Bürokratie.
+          </p>
+        </div>
+        <div>
+          <h4 style={{ color: 'var(--ap-white)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>Leistungen</h4>
+          <ul style={{ listStyle: 'none', padding: 0 }}>
+            <li><Link to="/leistungen/grundsicherung" style={{ color: 'var(--ap-light-sage)', textDecoration: 'none' }}>Grundsicherung</Link></li>
+            <li><Link to="/leistungen/wohngeld" style={{ color: 'var(--ap-light-sage)', textDecoration: 'none' }}>Wohngeld</Link></li>
+            <li><Link to="/leistungen/pflegegeld" style={{ color: 'var(--ap-light-sage)', textDecoration: 'none' }}>Pflegegeld</Link></li>
+          </ul>
+        </div>
+        <div>
+          <h4 style={{ color: 'var(--ap-white)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>Unternehmen</h4>
+          <ul style={{ listStyle: 'none', padding: 0 }}>
+            <li><Link to="/impressum" style={{ color: 'var(--ap-light-sage)', textDecoration: 'none' }}>Impressum</Link></li>
+            <li><Link to="/datenschutz" style={{ color: 'var(--ap-light-sage)', textDecoration: 'none' }}>Datenschutz</Link></li>
+            <li><Link to="/agb" style={{ color: 'var(--ap-light-sage)', textDecoration: 'none' }}>AGB</Link></li>
+            <li><Link to="/kontakt" style={{ color: 'var(--ap-light-sage)', textDecoration: 'none' }}>Kontakt</Link></li>
+          </ul>
+        </div>
+        <div>
+          <h4 style={{ color: 'var(--ap-white)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>Betreiber</h4>
+          <p style={{ color: 'var(--ap-light-sage)', fontSize: '0.9rem' }}>
+            ALEVOR Mittelstandspartner GmbH<br />
+            Titurelstraße 10<br />
+            81925 München<br />
+            <a href="mailto:info@adminpilot.de" style={{ color: 'var(--ap-light-sage)' }}>info@adminpilot.de</a>
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+function ProtectedRoute({ children }) {
+  return (
+    <>
+      <SignedIn>{children}</SignedIn>
+      <SignedOut><RedirectToSignIn /></SignedOut>
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} localization={deDE}>
+      <BrowserRouter>
+        <Routes>
+          {/* Public */}
+          <Route path="/" element={<PublicLayout><HomePage /></PublicLayout>} />
+          <Route path="/preise" element={<PublicLayout><PricingPage /></PublicLayout>} />
+          <Route path="/fragen" element={<PublicLayout><FaqPage /></PublicLayout>} />
+          <Route path="/wie-funktioniert-es" element={<PublicLayout><HowItWorksPage /></PublicLayout>} />
+          <Route path="/leistungen/grundsicherung" element={<PublicLayout><GrundsicherungPage /></PublicLayout>} />
+          <Route path="/leistungen/wohngeld" element={<PublicLayout><WohngeldPage /></PublicLayout>} />
+          <Route path="/leistungen/pflegegeld" element={<PublicLayout><PflegegeldPage /></PublicLayout>} />
+          <Route path="/agb" element={<PublicLayout><AgbPage /></PublicLayout>} />
+          <Route path="/datenschutz" element={<PublicLayout><DatenschutzPage /></PublicLayout>} />
+
+          {/* Auth */}
+          <Route path="/anmelden/*" element={<div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}><SignIn signUpUrl="/registrieren" /></div>} />
+          <Route path="/registrieren/*" element={<div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}><SignUp signInUrl="/anmelden" /></div>} />
+
+          {/* Shortcut for "prüfen" entry point */}
+          <Route path="/pruefen" element={
+            <>
+              <SignedIn><Navigate to="/app/neuer-antrag" replace /></SignedIn>
+              <SignedOut><Navigate to="/registrieren" replace /></SignedOut>
+            </>
+          } />
+
+          {/* Protected app */}
+          <Route path="/app" element={<ProtectedRoute><AppLayout><DashboardPage /></AppLayout></ProtectedRoute>} />
+          <Route path="/app/neuer-antrag" element={<ProtectedRoute><AppLayout><NewApplicationPage /></AppLayout></ProtectedRoute>} />
+          <Route path="/app/antrag/:id" element={<ProtectedRoute><AppLayout><ApplicationDetailPage /></AppLayout></ProtectedRoute>} />
+
+          {/* 404 */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </ClerkProvider>
   );
 }

@@ -1,242 +1,203 @@
-// AdminPilot – OCR Edge Function
-// Analysiert Dokumente via Claude API und extrahiert strukturierte Daten
-// Deploy: supabase functions deploy ocr-analyze
+// ============================================================================
+// ocr-analyze
+// ============================================================================
+// Extrahiert strukturierte Daten aus hochgeladenen Dokumenten mit Claude
+// Vision. Wird automatisch nach Upload eines Dokuments getriggert.
+//
+// Input:  { document_id: uuid }
+// Output: { success: boolean, extracted_data?: object, error?: string }
+// ============================================================================
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { corsHeaders } from '../_shared/cors.ts'
+// deno-lint-ignore-file no-explicit-any
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import Anthropic from 'https://esm.sh/@anthropic-ai/sdk@0.30.0';
 
-const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL')!,
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+);
 
-// Welche Daten je nach Dokumenttyp extrahiert werden sollen
+const anthropic = new Anthropic({
+  apiKey: Deno.env.get('ANTHROPIC_API_KEY')!,
+});
+
 const EXTRACTION_PROMPTS: Record<string, string> = {
-  personalausweis: `Analysiere diesen Personalausweis/Reisepass und extrahiere:
-    - full_name (Vor- und Nachname)
-    - birth_date (Geburtsdatum, Format: YYYY-MM-DD)
-    - address (Adresse falls vorhanden)
-    - document_number (Ausweisnummer)
-    Antworte NUR mit einem JSON-Objekt, kein anderer Text.`,
+  rentenbescheid: `Analysiere diesen Rentenbescheid und gib die Daten als JSON zurück. Felder:
+- monthly_amount_gross (Zahl, Bruttomonatsbetrag in Euro)
+- monthly_amount_net (Zahl, Nettomonatsbetrag in Euro, wenn sichtbar)
+- pension_type (string, z.B. "Altersrente", "Erwerbsminderungsrente")
+- start_date (YYYY-MM-DD)
+- pension_fund_name (string, Name der Rentenversicherung)
+- issue_date (YYYY-MM-DD, Datum des Bescheids)
 
-  mietvertrag: `Analysiere diesen Mietvertrag/Mietbescheinigung und extrahiere:
-    - monthly_rent (Kaltmiete in Euro, nur Zahl)
-    - warm_rent (Warmmiete in Euro, nur Zahl)
-    - address (Mietadresse)
-    - landlord (Vermieter Name)
-    - move_in_date (Einzugsdatum, Format: YYYY-MM-DD falls vorhanden)
-    Antworte NUR mit einem JSON-Objekt, kein anderer Text.`,
+Gib NUR das JSON-Objekt zurück, keine Erklärung. Wenn ein Feld nicht sichtbar ist, setze null.`,
 
-  einkommensnachweis: `Analysiere diese Gehaltsabrechnung/Einkommensnachweis und extrahiere:
-    - gross_income (Bruttoeinkommen monatlich in Euro, nur Zahl)
-    - net_income (Nettoeinkommen monatlich in Euro, nur Zahl)
-    - employer (Arbeitgeber)
-    - period (Abrechnungszeitraum)
-    Antworte NUR mit einem JSON-Objekt, kein anderer Text.`,
+  mietvertrag: `Analysiere diesen Mietvertrag und gib die Daten als JSON zurück. Felder:
+- monthly_cold_rent (Zahl, Kaltmiete in Euro)
+- monthly_utilities (Zahl, Nebenkosten in Euro, wenn getrennt ausgewiesen)
+- monthly_heating (Zahl, Heizkosten in Euro, wenn getrennt ausgewiesen)
+- monthly_warm_rent (Zahl, Warmmiete in Euro)
+- apartment_size_sqm (Zahl, Wohnfläche in Quadratmetern)
+- apartment_address (string)
+- landlord_name (string)
+- contract_start_date (YYYY-MM-DD)
 
-  rentenbescheid: `Analysiere diesen Rentenbescheid und extrahiere:
-    - monthly_pension (Monatliche Bruttorente in Euro, nur Zahl)
-    - net_pension (Nettorente in Euro, nur Zahl)
-    - pension_type (Art der Rente: Altersrente, Erwerbsminderungsrente, etc.)
-    - insurance_number (Versicherungsnummer)
-    - pension_start (Rentenbeginn, Format: YYYY-MM-DD falls vorhanden)
-    Antworte NUR mit einem JSON-Objekt, kein anderer Text.`,
+Gib NUR das JSON-Objekt zurück. Bei fehlenden Feldern: null.`,
 
-  geburtsurkunde: `Analysiere diese Geburtsurkunde und extrahiere:
-    - child_name (Name des Kindes)
-    - birth_date (Geburtsdatum, Format: YYYY-MM-DD)
-    - birth_place (Geburtsort)
-    - parent_names (Namen der Eltern als Array)
-    Antworte NUR mit einem JSON-Objekt, kein anderer Text.`,
+  kontoauszug: `Analysiere diesen Kontoauszug und gib die Daten als JSON zurück. Felder:
+- account_holder (string)
+- account_iban (string, IBAN)
+- bank_name (string)
+- statement_start_date (YYYY-MM-DD)
+- statement_end_date (YYYY-MM-DD)
+- opening_balance (Zahl)
+- closing_balance (Zahl)
+- recurring_incomes (Array von {description, amount}, nur regelmäßige Eingänge)
+- notable_outgoings (Array von {description, amount}, hohe oder auffällige Abgänge)
 
-  kv_bescheinigung: `Analysiere diese Krankenversicherungsbescheinigung und extrahiere:
-    - insurance_type (gesetzlich/privat/freiwillig gesetzlich)
-    - insurance_company (Name der Krankenkasse/Versicherung)
-    - monthly_premium (Monatlicher Beitrag in Euro, nur Zahl)
-    - member_number (Versichertennummer)
-    Antworte NUR mit einem JSON-Objekt, kein anderer Text.`,
+Gib NUR das JSON-Objekt zurück. Bei fehlenden Feldern: null.`,
 
-  kindergeld_bescheid: `Analysiere diesen Kindergeld-Bescheid und extrahiere:
-    - monthly_amount (Monatlicher Kindergeldbetrag in Euro, nur Zahl)
-    - number_of_children (Anzahl Kinder)
-    - children_names (Namen der Kinder als Array)
-    - case_number (Aktenzeichen/Kindergeldnummer)
-    Antworte NUR mit einem JSON-Objekt, kein anderer Text.`,
+  einkommensnachweis: `Analysiere diesen Einkommensnachweis und gib die Daten als JSON zurück. Felder:
+- employer_name (string)
+- gross_monthly (Zahl, Bruttomonatslohn)
+- net_monthly (Zahl, Nettomonatslohn)
+- position (string, Jobtitel wenn sichtbar)
+- period (string, Abrechnungsmonat)
 
-  other: `Analysiere dieses Dokument und extrahiere alle relevanten Informationen für einen Sozialleistungsantrag:
-    - document_type (Was für ein Dokument ist das?)
-    - key_data (Wichtigste Daten als Objekt)
-    - summary (Kurze Zusammenfassung in einem Satz)
-    Antworte NUR mit einem JSON-Objekt, kein anderer Text.`,
+Gib NUR das JSON-Objekt zurück. Bei fehlenden Feldern: null.`,
+
+  pflegegutachten: `Analysiere dieses Pflegegutachten und gib die Daten als JSON zurück. Felder:
+- pflegegrad (Zahl 1-5 oder null)
+- gutachten_date (YYYY-MM-DD)
+- assessed_person (string, Name der begutachteten Person)
+- main_impairments (Array von Strings, wichtigste Einschränkungen)
+- recommendation (string, Empfehlung des Gutachters)
+
+Gib NUR das JSON-Objekt zurück. Bei fehlenden Feldern: null.`,
+
+  versicherungskarte: `Analysiere diese Versicherungskarte und gib die Daten als JSON zurück. Felder:
+- insurance_name (string, Name der Versicherung/Krankenkasse)
+- insurance_number (string, Versichertennummer)
+- insured_name (string)
+- date_of_birth (YYYY-MM-DD)
+
+Gib NUR das JSON-Objekt zurück. Bei fehlenden Feldern: null.`,
+
+  sonstiges: `Analysiere dieses Dokument und extrahiere die wichtigsten Informationen als JSON. Versuche zu erkennen, um welche Art von Dokument es sich handelt (z.B. Bescheid, Rechnung, Bescheinigung), und liefere die wichtigsten Felder als flaches JSON-Objekt. Gib NUR das JSON zurück.`,
+};
+
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
 }
 
-// Dokumenttyp anhand des Inhalts automatisch erkennen
-const AUTO_DETECT_PROMPT = `Analysiere dieses Dokument und bestimme den Typ. Antworte NUR mit einem der folgenden Werte (genau so geschrieben):
-personalausweis, mietvertrag, einkommensnachweis, rentenbescheid, geburtsurkunde, kv_bescheinigung, kindergeld_bescheid, schulbescheinigung, other`
-
-Deno.serve(async (req: Request) => {
-  // CORS
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders() });
   }
 
   try {
-    const { document_id, application_id } = await req.json()
-
-    if (!document_id || !application_id) {
-      return new Response(JSON.stringify({ error: 'document_id and application_id required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+    const { document_id } = await req.json();
+    if (!document_id) {
+      return json({ error: 'document_id required' }, 400);
     }
 
-    // Supabase Client mit Service Role (bypasses RLS)
-    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!)
-
-    // 1. Dokument-Info aus DB laden
-    const { data: doc, error: docError } = await supabase
+    // 1. Load document metadata
+    const { data: doc, error: docErr } = await supabase
       .from('documents')
       .select('*')
       .eq('id', document_id)
-      .single()
+      .single();
 
-    if (docError || !doc) {
-      return new Response(JSON.stringify({ error: 'Document not found' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    if (docErr || !doc) return json({ error: 'document not found' }, 404);
 
-    // Status auf "processing" setzen
+    // 2. Mark as processing
     await supabase
       .from('documents')
       .update({ ocr_status: 'processing' })
-      .eq('id', document_id)
+      .eq('id', document_id);
 
-    // 2. Datei aus Storage herunterladen
-    const { data: fileData, error: fileError } = await supabase
+    // 3. Get signed URL for the file
+    const { data: signed, error: signErr } = await supabase
       .storage
-      .from('documents')
-      .download(doc.file_path)
+      .from('user-documents')
+      .createSignedUrl(doc.storage_path, 60); // 1 min lifetime
 
-    if (fileError || !fileData) {
-      await supabase.from('documents').update({ ocr_status: 'failed' }).eq('id', document_id)
-      return new Response(JSON.stringify({ error: 'File download failed' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+    if (signErr || !signed) {
+      await markFailed(document_id, 'signed_url_failed');
+      return json({ error: 'could not create signed URL' }, 500);
     }
 
-    // 3. Datei zu Base64 konvertieren
-    const arrayBuffer = await fileData.arrayBuffer()
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+    // 4. Fetch image bytes, convert to base64
+    const imgRes = await fetch(signed.signedUrl);
+    const buf = new Uint8Array(await imgRes.arrayBuffer());
+    const b64 = btoa(String.fromCharCode(...buf));
+    const mediaType = doc.mime_type || 'image/jpeg';
 
-    // Medientyp bestimmen
-    const fileName = doc.file_name.toLowerCase()
-    let mediaType = 'image/jpeg'
-    if (fileName.endsWith('.png')) mediaType = 'image/png'
-    else if (fileName.endsWith('.pdf')) mediaType = 'application/pdf'
-    else if (fileName.endsWith('.webp')) mediaType = 'image/webp'
+    // 5. Call Claude Vision with category-specific prompt
+    const prompt = EXTRACTION_PROMPTS[doc.category] ?? EXTRACTION_PROMPTS.sonstiges;
 
-    // 4. Schritt 1: Dokumenttyp automatisch erkennen
-    const detectResponse = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 100,
-        messages: [{
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
+      messages: [
+        {
           role: 'user',
           content: [
             {
               type: mediaType === 'application/pdf' ? 'document' : 'image',
-              source: { type: 'base64', media_type: mediaType, data: base64 },
-            },
-            { type: 'text', text: AUTO_DETECT_PROMPT },
+              source: { type: 'base64', media_type: mediaType, data: b64 },
+            } as any,
+            { type: 'text', text: prompt },
           ],
-        }],
-      }),
-    })
+        },
+      ],
+    });
 
-    const detectResult = await detectResponse.json()
-    const detectedType = detectResult.content?.[0]?.text?.trim().toLowerCase() || 'other'
+    // 6. Parse the JSON response
+    const textBlock = response.content.find((b: any) => b.type === 'text');
+    if (!textBlock) throw new Error('No text in Claude response');
 
-    // Validierten Typ setzen
-    const validTypes = Object.keys(EXTRACTION_PROMPTS)
-    const docType = validTypes.includes(detectedType) ? detectedType : 'other'
-
-    // Dokumenttyp in DB aktualisieren
-    await supabase.from('documents').update({ doc_type: docType }).eq('id', document_id)
-
-    // 5. Schritt 2: Daten extrahieren
-    const extractPrompt = EXTRACTION_PROMPTS[docType]
-    const extractResponse = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: mediaType === 'application/pdf' ? 'document' : 'image',
-              source: { type: 'base64', media_type: mediaType, data: base64 },
-            },
-            { type: 'text', text: extractPrompt },
-          ],
-        }],
-      }),
-    })
-
-    const extractResult = await extractResponse.json()
-    const rawText = extractResult.content?.[0]?.text || '{}'
-
-    // JSON parsen (Claude gibt manchmal Markdown-Backticks zurück)
-    let ocrData = {}
+    let extracted: any;
     try {
-      const cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-      ocrData = JSON.parse(cleaned)
-    } catch {
-      ocrData = { raw_text: rawText, parse_error: true }
+      const txt = (textBlock as any).text.trim();
+      const jsonStart = txt.indexOf('{');
+      const jsonEnd = txt.lastIndexOf('}');
+      extracted = JSON.parse(txt.slice(jsonStart, jsonEnd + 1));
+    } catch (err) {
+      await markFailed(document_id, 'json_parse_failed');
+      return json({ error: 'could not parse extraction result' }, 500);
     }
 
-    // 6. Ergebnis in DB speichern
+    // 7. Store result
     await supabase
       .from('documents')
       .update({
-        ocr_status: 'complete',
-        ocr_result: { doc_type: docType, extracted: ocrData, processed_at: new Date().toISOString() },
+        ocr_status: 'done',
+        extracted_data: extracted,
+        ocr_text: (textBlock as any).text,
       })
-      .eq('id', document_id)
+      .eq('id', document_id);
 
-    // Status-Update für den Antrag
-    await supabase.from('status_updates').insert({
-      application_id,
-      status: 'analyzing',
-      message: `Dokument "${doc.file_name}" wurde analysiert (${docType}).`,
-    })
-
-    return new Response(JSON.stringify({
-      success: true,
-      doc_type: docType,
-      extracted: ocrData,
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
-
-  } catch (error) {
-    console.error('OCR Error:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return json({ success: true, extracted_data: extracted });
+  } catch (err) {
+    console.error('OCR error:', err);
+    return json({ error: String(err) }, 500);
   }
-})
+});
+
+async function markFailed(id: string, reason: string) {
+  await supabase
+    .from('documents')
+    .update({ ocr_status: 'failed', ocr_text: reason })
+    .eq('id', id);
+}
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders(), 'Content-Type': 'application/json' },
+  });
+}
