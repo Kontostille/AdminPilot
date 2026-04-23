@@ -20,6 +20,20 @@ async function supaFetch(path, options = {}) {
   return res.json();
 }
 
+async function triggerGenerateAntrag(origin, applicationId) {
+  // Fire-and-forget: generate-antrag läuft im Hintergrund weiter
+  try {
+    const res = await fetch(`${origin}/api/generate-antrag`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ application_id: applicationId }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export default async function handler(request) {
   if (request.method !== 'POST') {
     return Response.json({ error: 'POST only' }, { status: 405 });
@@ -29,49 +43,60 @@ export default async function handler(request) {
     const body = await request.json();
     const event = body.type;
 
-    // Nur checkout.session.completed verarbeiten
+    // === checkout.session.completed ===
     if (event === 'checkout.session.completed') {
       const session = body.data?.object;
-      const applicationId = session?.metadata?.application_id;
+      const metadata = session?.metadata || {};
+      const applicationId = metadata.application_id;
+      const isPlus = metadata.package_type === 'basis_plus';
+      const plusAmount = Number(metadata.plus_amount || 0);
 
       if (!applicationId) {
         return Response.json({ received: true, skipped: 'no application_id' });
       }
 
-      // 1. Payment record erstellen
+      // Payment-Record anlegen (zahlungen)
       await supaFetch('payments', {
         method: 'POST',
         body: JSON.stringify({
           application_id: applicationId,
           clerk_id: session.client_reference_id || 'webhook',
-          amount: session.amount_total || 4900,
-          currency: session.currency || 'eur',
-          status: 'completed',
+          amount: (session.amount_total || 0) / 100, // Cents → Euro für NUMERIC
+          status: 'paid',
           stripe_session_id: session.id,
-          payment_type: 'base_fee',
+          type: isPlus ? 'base_fee_plus' : 'base_fee',
+          plus_amount: plusAmount / 100,
         }),
       });
 
-      // 2. Application Status updaten → signature_pending
-      await supaFetch(`applications?id=eq.${applicationId}`, {
+      // Application-Status → antrag_wird_erstellt; plus_package-Flag setzen
+      // Idempotent: nur updaten, wenn Status noch nicht weiter fortgeschritten ist
+      await supaFetch(`applications?id=eq.${applicationId}&status=in.(analysis_complete,payment_pending,antrag_wird_erstellt)`, {
         method: 'PATCH',
         body: JSON.stringify({
-          status: 'signature_pending',
+          status: 'antrag_wird_erstellt',
+          plus_package: isPlus,
           updated_at: new Date().toISOString(),
         }),
       });
 
-      // 3. Status-Update für Timeline
+      // Timeline-Eintrag
       await supaFetch('status_updates', {
         method: 'POST',
         body: JSON.stringify({
           application_id: applicationId,
-          status: 'signature_pending',
-          message: 'Zahlung von 49 € bestätigt. Bitte unterschreiben Sie die Vollmacht.',
+          status: 'antrag_wird_erstellt',
+          message: isPlus
+            ? `Zahlung von ${(session.amount_total / 100).toLocaleString('de-DE')} € bestätigt (inkl. Plus-Paket). Ihr Antrag wird jetzt vorbereitet.`
+            : `Zahlung von ${(session.amount_total / 100).toLocaleString('de-DE')} € bestätigt. Ihr Antrag wird jetzt vorbereitet.`,
         }),
       });
 
-      return Response.json({ received: true, processed: applicationId });
+      // generate-antrag anstoßen (fire-and-forget)
+      const origin = new URL(request.url).origin;
+      triggerGenerateAntrag(origin, applicationId);
+
+      return Response.json({ received: true, processed: applicationId, is_plus: isPlus });
     }
 
     // Andere Events ignorieren

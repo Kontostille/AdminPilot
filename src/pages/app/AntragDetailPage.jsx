@@ -8,12 +8,24 @@ import { supabase } from '../../utils/supabase.js';
 import { LEISTUNGEN } from '../../data/leistungen.js';
 import { PRICING } from '../../data/siteConfig.js';
 
-const STATUS_STEPS = ['documents_pending', 'analyzing', 'analysis_complete', 'payment_pending', 'signature_pending', 'submitted', 'approved'];
+const STATUS_STEPS = ['documents_pending', 'analyzing', 'analysis_complete', 'payment_pending', 'antrag_wird_erstellt', 'antrag_bereit', 'eingereicht_durch_kunde', 'bewilligt'];
 const STATUS_LABELS = {
-  draft: 'Entwurf', documents_pending: 'Dokumente hochladen', analyzing: 'Wird analysiert',
-  analysis_complete: 'Analyse fertig', payment_pending: 'Zahlung offen',
-  signature_pending: 'Unterschrift nötig', submitted: 'Bei Behörde eingereicht',
-  approved: 'Bewilligt', rejected: 'Abgelehnt', cancelled: 'Storniert',
+  draft: 'Entwurf',
+  documents_pending: 'Dokumente hochladen',
+  analyzing: 'Wird analysiert',
+  analysis_complete: 'Analyse fertig',
+  payment_pending: 'Zahlung offen',
+  antrag_wird_erstellt: 'Antrag wird vorbereitet',
+  antrag_bereit: 'Bereit zum Einreichen',
+  eingereicht_durch_kunde: 'Eingereicht',
+  bewilligt: 'Bewilligt',
+  abgelehnt: 'Abgelehnt',
+  cancelled: 'Storniert',
+  // Legacy (falls in DB noch vorhanden)
+  signature_pending: 'Bereit zum Einreichen',
+  submitted: 'Eingereicht',
+  approved: 'Bewilligt',
+  rejected: 'Abgelehnt',
 };
 
 const DOC_TYPE_LABELS = {
@@ -22,29 +34,6 @@ const DOC_TYPE_LABELS = {
   geburtsurkunde: 'Geburtsurkunde', kv_bescheinigung: 'KV-Bescheinigung',
   kindergeld_bescheid: 'Kindergeld-Bescheid', other: 'Sonstiges Dokument',
 };
-
-const FIELD_LABELS = {
-  full_name: 'Name', birth_date: 'Geburtsdatum', address: 'Adresse',
-  monthly_rent: 'Kaltmiete', warm_rent: 'Warmmiete', landlord: 'Vermieter',
-  gross_income: 'Bruttoeinkommen', net_income: 'Nettoeinkommen', employer: 'Arbeitgeber',
-  monthly_pension: 'Bruttorente', net_pension: 'Nettorente', pension_type: 'Rentenart',
-  insurance_number: 'Versicherungsnr.', child_name: 'Name des Kindes',
-  parent_names: 'Eltern', insurance_type: 'Versicherungsart',
-  monthly_premium: 'Monatsbeitrag', monthly_amount: 'Monatsbetrag',
-  number_of_children: 'Anzahl Kinder', document_type: 'Dokumenttyp', summary: 'Zusammenfassung',
-};
-
-function formatValue(key, val) {
-  if (val === null || val === undefined) return '–';
-  if (Array.isArray(val)) return val.join(', ');
-  if (typeof val === 'number') {
-    if (key.includes('rent') || key.includes('income') || key.includes('pension') || key.includes('premium') || key.includes('amount')) {
-      return `${val.toLocaleString('de-DE')} €`;
-    }
-    return val.toString();
-  }
-  return String(val);
-}
 
 const CONFIDENCE_CONFIG = {
   hoch: { label: 'Hohe Konfidenz', color: '#0F6E56', bg: '#E1F5EE', desc: 'Die Daten wurden klar erkannt. Diese Schätzung ist relativ zuverlässig.' },
@@ -56,14 +45,10 @@ const CONFIDENCE_CONFIG = {
 function AnalysisSummary({ app, documents, leistung }) {
   const conf = CONFIDENCE_CONFIG[app.confidence] || CONFIDENCE_CONFIG.niedrig;
   const analyzedDocs = documents.filter(d => d.ocr_status === 'complete');
-  const failedDocs = documents.filter(d => d.ocr_status === 'failed');
   let details = {};
   try { details = JSON.parse(app.notes || '{}'); } catch { details = {}; }
 
-  const monthlyFee = Math.round(Number(app.estimated_monthly) * PRICING.successFeePercent / 100);
   const yearlyBenefit = Number(app.estimated_monthly) * 12;
-  const yearlyFee = monthlyFee * 12;
-  const yearlyNet = yearlyBenefit - yearlyFee - PRICING.baseFee;
 
   return (
     <div>
@@ -128,119 +113,56 @@ function AnalysisSummary({ app, documents, leistung }) {
         )}
       </div>
 
-      {/* Erkannte Daten */}
-      {analyzedDocs.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <h3 style={{ fontSize: 16, marginBottom: 12 }}>Erkannte Daten</h3>
-          {analyzedDocs.map((doc) => {
-            const extracted = doc.ocr_result?.extracted || {};
-            const docLabel = DOC_TYPE_LABELS[doc.doc_type] || doc.doc_type;
-            const entries = Object.entries(extracted).filter(([k, v]) => v && k !== 'raw_text' && k !== 'parse_error');
-            if (entries.length === 0) return null;
-            return (
-              <div key={doc.id} style={{ background: '#FFF', border: '1px solid #E2E8E5', borderRadius: 8, padding: 16, marginBottom: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <AppIcon name="document" size={16} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#1A3C2B' }}>{docLabel}</span>
-                  <span style={{ fontSize: 11, color: '#8AA494' }}>({doc.file_name})</span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
-                  {entries.map(([key, val]) => (
-                    <div key={key} style={{ padding: '6px 0' }}>
-                      <div style={{ fontSize: 11, color: '#8AA494', marginBottom: 2 }}>{FIELD_LABELS[key] || key}</div>
-                      <div style={{ fontSize: 14, fontWeight: 500, color: '#1A3C2B' }}>{formatValue(key, val)}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Fehlgeschlagene Dokumente */}
-      {failedDocs.length > 0 && (
-        <div style={{ padding: 16, background: '#FFF5F5', borderRadius: 8, marginBottom: 24, border: '1px solid #E8A3A3' }}>
-          <p style={{ fontSize: 13, color: '#791F1F', margin: 0 }}>
-            {failedDocs.length} Dokument(e) konnten nicht analysiert werden.
-            Sie können diese erneut hochladen für eine genauere Schätzung.
-          </p>
-          <a href={`/app/upload?antrag=${app.id}`} style={{ fontSize: 13, color: '#791F1F', fontWeight: 600, marginTop: 8, display: 'inline-block' }}>
-            Weitere Dokumente hochladen →
-          </a>
-        </div>
-      )}
-
-      {/* Kostenübersicht */}
-      <div style={{ background: '#FFF', border: '1px solid #E2E8E5', borderRadius: 8, padding: 20, marginBottom: 24 }}>
-        <h3 style={{ fontSize: 16, marginBottom: 16 }}>Kostenübersicht</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-            <span style={{ color: '#8AA494' }}>Grundgebühr (einmalig)</span>
-            <span style={{ fontWeight: 600, color: '#1A3C2B' }}>{PRICING.baseFeeLabel}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-            <span style={{ color: '#8AA494' }}>Erfolgsgebühr ({PRICING.successFeePercent}% × ~{Number(app.estimated_monthly).toLocaleString('de-DE')} €)</span>
-            <span style={{ fontWeight: 600, color: '#1A3C2B' }}>~{monthlyFee} €/Monat</span>
-          </div>
-          <div style={{ borderTop: '1px solid #E2E8E5', paddingTop: 12, display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-            <span style={{ color: '#8AA494' }}>Erfolgsgebühr nur im 1. Jahr</span>
-            <span style={{ fontWeight: 600, color: '#1A3C2B' }}>~{yearlyFee.toLocaleString('de-DE')} €</span>
-          </div>
-          <div style={{ background: '#E1F5EE', borderRadius: 6, padding: 12, display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-            <span style={{ fontWeight: 600, color: '#0F6E56' }}>Ihr Nettovorteil im 1. Jahr</span>
-            <span style={{ fontWeight: 700, color: '#0F6E56', fontFamily: 'var(--font-mono)' }}>~{yearlyNet.toLocaleString('de-DE')} €</span>
-          </div>
-        </div>
-        <p style={{ fontSize: 11, color: '#8AA494', marginTop: 12, marginBottom: 0 }}>
-          Ab dem 2. Jahr erhalten Sie die volle Leistung ohne Abzüge. Bei Ablehnung werden die 49 € erstattet.
-        </p>
-      </div>
-
       {/* Disclaimer */}
       <div style={{ padding: 12, background: '#FFF8E7', border: '1px solid #E8D5A3', borderRadius: 8, marginBottom: 24, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
         <AppIcon name="scale" size={16} />
         <p style={{ fontSize: 12, color: '#8B6914', margin: 0, lineHeight: 1.5 }}>
           Diese Schätzung basiert auf allgemeinen Berechnungsregeln und den erkannten Daten aus Ihren Dokumenten.
-          Die tatsächliche Leistungshöhe wird von der zuständigen Behörde festgelegt und kann abweichen.
-          AdminPilot bietet keine Rechts- oder Sozialberatung an.
+          Die tatsächliche Leistungshöhe wird von der zuständigen Behörde festgelegt. AdminPilot bietet keine Rechts- oder Sozialberatung.
         </p>
       </div>
     </div>
   );
 }
 
-// === NÄCHSTE SCHRITTE ===
-function NextSteps({ app, status }) {
+// === NÄCHSTE SCHRITTE (neue Reihenfolge ohne Signatur) ===
+function NextSteps({ status }) {
+  const isDone = (s) => ['antrag_wird_erstellt', 'antrag_bereit', 'eingereicht_durch_kunde', 'bewilligt', 'submitted', 'approved'].includes(status) && s !== status;
   const steps = [
-    { key: 'analysis_complete', label: 'Analyse abgeschlossen', desc: 'Ihre Dokumente wurden ausgewertet.', done: true },
+    {
+      key: 'analysis_complete',
+      label: 'Analyse abgeschlossen',
+      desc: 'Ihre Dokumente wurden ausgewertet.',
+      done: ['payment_pending', 'antrag_wird_erstellt', 'antrag_bereit', 'eingereicht_durch_kunde', 'bewilligt', 'abgelehnt', 'submitted', 'approved', 'rejected'].includes(status),
+      current: status === 'analysis_complete',
+    },
     {
       key: 'payment',
       label: 'Antrag beauftragen',
       desc: `Einmalige Grundgebühr von ${PRICING.baseFeeLabel}. Geld zurück bei Ablehnung.`,
-      done: ['payment_pending', 'signature_pending', 'submitted', 'approved'].includes(status) && status !== 'analysis_complete',
-      current: status === 'analysis_complete',
+      done: ['antrag_wird_erstellt', 'antrag_bereit', 'eingereicht_durch_kunde', 'bewilligt', 'abgelehnt', 'submitted', 'approved', 'rejected'].includes(status),
+      current: status === 'payment_pending' || status === 'analysis_complete',
     },
     {
-      key: 'signature',
-      label: 'Digital unterschreiben',
-      desc: 'Vollmacht per qualifizierter elektronischer Signatur (QES) bestätigen.',
-      done: ['signature_pending', 'submitted', 'approved'].includes(status) && status !== 'payment_pending',
-      current: status === 'payment_pending',
+      key: 'generating',
+      label: 'Antrag wird vorbereitet',
+      desc: 'Wir erstellen Ihren Antrag automatisch auf Basis Ihrer Dokumente.',
+      done: ['antrag_bereit', 'eingereicht_durch_kunde', 'bewilligt', 'abgelehnt', 'submitted', 'approved', 'rejected'].includes(status),
+      current: status === 'antrag_wird_erstellt',
     },
     {
-      key: 'submitted',
-      label: 'Antrag wird eingereicht',
-      desc: 'Wir füllen den Antrag aus und reichen ihn bei der Behörde ein.',
-      done: ['submitted', 'approved'].includes(status),
-      current: status === 'signature_pending',
+      key: 'submit',
+      label: 'Antrag einreichen',
+      desc: 'Sie drucken den Antrag aus, unterschreiben und senden ihn an die Behörde.',
+      done: ['eingereicht_durch_kunde', 'bewilligt', 'abgelehnt', 'submitted', 'approved', 'rejected'].includes(status),
+      current: status === 'antrag_bereit' || status === 'signature_pending',
     },
     {
       key: 'decision',
       label: 'Entscheidung der Behörde',
-      desc: 'In der Regel 3–8 Wochen. Wir informieren Sie per E-Mail.',
-      done: status === 'approved',
-      current: status === 'submitted',
+      desc: 'In der Regel 3–8 Wochen nach Einreichung.',
+      done: ['bewilligt', 'abgelehnt', 'approved', 'rejected'].includes(status),
+      current: status === 'eingereicht_durch_kunde' || status === 'submitted',
     },
   ];
 
@@ -250,7 +172,6 @@ function NextSteps({ app, status }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
         {steps.map((step, i) => (
           <div key={step.key} style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-            {/* Vertical line + dot */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 20 }}>
               <div style={{
                 width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
@@ -264,7 +185,6 @@ function NextSteps({ app, status }) {
                 <div style={{ width: 2, height: 40, background: step.done ? '#1A3C2B' : '#C8DAD0' }} />
               )}
             </div>
-            {/* Content */}
             <div style={{ paddingBottom: 24 }}>
               <div style={{ fontSize: 14, fontWeight: step.current ? 700 : step.done ? 600 : 400, color: step.current ? '#1A3C2B' : step.done ? '#1A3C2B' : '#8AA494' }}>
                 {step.label}
@@ -278,6 +198,302 @@ function NextSteps({ app, status }) {
   );
 }
 
+// === VIEW: Antrag wird erstellt ===
+function AntragWirdErstelltView() {
+  return (
+    <div style={{ textAlign: 'center', padding: '48px 0' }}>
+      <div style={{
+        width: 56, height: 56, border: '4px solid #C8DAD0',
+        borderTopColor: '#1A3C2B', borderRadius: '50%',
+        animation: 'spin 0.8s linear infinite',
+        margin: '0 auto 24px',
+      }} />
+      <h2 style={{ fontSize: 22, marginBottom: 8 }}>Ihr Antrag wird vorbereitet</h2>
+      <p style={{ color: '#8AA494', maxWidth: 440, margin: '0 auto 16px', lineHeight: 1.6 }}>
+        Wir erstellen gerade Ihren fertig ausgefüllten Antrag. Das dauert in der Regel 1–2 Minuten. Diese Seite aktualisiert sich automatisch.
+      </p>
+      <p style={{ fontSize: 13, color: '#8AA494', maxWidth: 440, margin: '0 auto' }}>
+        Sie können die Seite verlassen – wir benachrichtigen Sie per E-Mail, sobald der Antrag zum Einreichen bereit ist.
+      </p>
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+    </div>
+  );
+}
+
+// === VIEW: Antrag bereit (Kunde reicht selbst ein) ===
+function AntragBereitView({ app, onConfirmSubmission, onRequestShipment, shipmentSent, confirmingSubmission }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [submissionMethod, setSubmissionMethod] = useState('post');
+
+  const ga = app.generated_antrag || {};
+  const meta = ga.meta || {};
+  const behoerde = ga.behoerde_empfaenger || {};
+  const anleitung = ga.einreichungsanleitung || '';
+  const nachweise = ga.nachweise_erforderlich || [];
+  const anschreiben = ga.anschreiben || '';
+  const hasPdf = meta.template_vorhanden && meta.template_pfad;
+
+  const handleDownloadAnschreiben = () => {
+    const blob = new Blob([anschreiben], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Antrag_${meta.leistung_id || 'AdminPilot'}_${app.id.substring(0, 8)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <>
+      {/* Hero-Box */}
+      <div style={{
+        background: 'linear-gradient(135deg, #0F6E56 0%, #1A3C2B 100%)',
+        borderRadius: 12, padding: 28, color: '#FFF', marginBottom: 24, textAlign: 'center',
+      }}>
+        <div style={{ marginBottom: 12 }}>
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#E2C044" strokeWidth="1.5"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        </div>
+        <h2 style={{ fontSize: 24, margin: '0 0 8px', color: '#FFF' }}>Ihr Antrag ist fertig!</h2>
+        <p style={{ fontSize: 14, color: '#C8DAD0', margin: 0 }}>
+          Antrag auf {app.leistung_name} – bereit zum Unterschreiben und Einreichen
+        </p>
+      </div>
+
+      {/* Plus-Box: Versandumschlag bestellen */}
+      {app.plus_package && (
+        <div style={{
+          background: '#FFF8E7', borderRadius: 12, padding: 20, marginBottom: 16,
+          border: '2px solid #E2C044',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#8B6914', background: '#E2C044', padding: '2px 10px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Plus-Paket</span>
+            <span style={{ fontSize: 15, fontWeight: 600, color: '#1A3C2B' }}>Versandumschlag anfordern</span>
+          </div>
+          <p style={{ fontSize: 13, color: '#5A6B60', margin: '0 0 12px', lineHeight: 1.5 }}>
+            Wir schicken Ihnen einen frankierten Umschlag mit Anschreiben und allen Formularen zum Ausdrucken nach Hause. Sie müssen nur noch unterschreiben und an die Behörde weiterschicken.
+          </p>
+          {shipmentSent ? (
+            <div style={{ padding: 12, background: '#E1F5EE', borderRadius: 8, fontSize: 13, color: '#0F6E56', fontWeight: 600 }}>
+              ✓ Versandumschlag bestellt – kommt in 2–3 Werktagen bei Ihnen an
+            </div>
+          ) : (
+            <button
+              onClick={onRequestShipment}
+              style={{
+                padding: '10px 20px', background: '#1A3C2B', color: '#FFF',
+                fontWeight: 600, fontSize: 14, borderRadius: 8, border: 'none',
+                cursor: 'pointer', fontFamily: 'var(--font-body)',
+              }}
+            >
+              Versandumschlag bestellen
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Antrags-Übersicht */}
+      <div style={{ background: '#F8FAF9', borderRadius: 12, padding: 20, marginBottom: 16, border: '1px solid #E2E8E5' }}>
+        <h3 style={{ fontSize: 15, marginBottom: 12 }}>Antragsübersicht</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, fontSize: 13 }}>
+          <div>
+            <div style={{ color: '#8AA494', fontSize: 11, marginBottom: 2 }}>Leistung</div>
+            <div style={{ fontWeight: 600, color: '#1A3C2B' }}>{meta.leistung || app.leistung_name}</div>
+          </div>
+          <div>
+            <div style={{ color: '#8AA494', fontSize: 11, marginBottom: 2 }}>Formular</div>
+            <div style={{ fontWeight: 600, color: '#1A3C2B' }}>{meta.kennung || '—'}</div>
+          </div>
+          <div>
+            <div style={{ color: '#8AA494', fontSize: 11, marginBottom: 2 }}>Behörde</div>
+            <div style={{ fontWeight: 600, color: '#1A3C2B', fontSize: 12 }}>{behoerde.name || '—'}</div>
+          </div>
+          <div>
+            <div style={{ color: '#8AA494', fontSize: 11, marginBottom: 2 }}>Bundesland</div>
+            <div style={{ fontWeight: 600, color: '#1A3C2B' }}>{meta.bundesland || '—'}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Download-Bereich */}
+      <div style={{ background: '#FFF', borderRadius: 12, padding: 20, marginBottom: 16, border: '1px solid #E2E8E5' }}>
+        <h3 style={{ fontSize: 15, marginBottom: 12 }}>Antrag herunterladen</h3>
+        {hasPdf && (
+          <p style={{ fontSize: 13, color: '#5A6B60', margin: '0 0 10px', lineHeight: 1.5 }}>
+            Offizielles PDF-Formular {meta.kennung}, von uns mit Ihren Daten ausgefüllt. Laden Sie das Original-Formular von der Behörde herunter und übertragen Sie die Daten aus unserer Vorlage (eine direkte Befüllung des PDFs wird in Kürze verfügbar sein).
+          </p>
+        )}
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {anschreiben && (
+            <button
+              onClick={handleDownloadAnschreiben}
+              style={{
+                padding: '10px 18px', background: '#E2C044', color: '#1A3C2B',
+                fontWeight: 600, fontSize: 14, borderRadius: 8, border: 'none',
+                cursor: 'pointer', fontFamily: 'var(--font-body)',
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}
+            >
+              📄 Anschreiben herunterladen
+            </button>
+          )}
+          {meta.online_portal && (
+            <a
+              href={meta.online_portal} target="_blank" rel="noopener"
+              style={{
+                padding: '10px 18px', background: '#FFF', color: '#1A3C2B',
+                fontWeight: 600, fontSize: 14, borderRadius: 8,
+                border: '1px solid #E2E8E5', textDecoration: 'none',
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+              }}
+            >
+              🌐 Online-Portal der Behörde →
+            </a>
+          )}
+        </div>
+      </div>
+
+      {/* Einreichungsanleitung */}
+      <div style={{ background: '#E1F5EE', borderRadius: 12, padding: 20, marginBottom: 16, border: '1px solid #A8D8C5' }}>
+        <h3 style={{ fontSize: 15, marginBottom: 12, color: '#0F6E56' }}>So reichen Sie Ihren Antrag ein</h3>
+        {anleitung ? (
+          <p style={{ fontSize: 13, color: '#0F6E56', margin: '0 0 10px', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+            {anleitung}
+          </p>
+        ) : (
+          <ol style={{ fontSize: 13, color: '#0F6E56', margin: '0 0 10px', paddingLeft: 20, lineHeight: 1.7 }}>
+            <li>Antragsdokument herunterladen und ausdrucken</li>
+            <li>Eigenhändig unterschreiben</li>
+            <li>Benötigte Nachweise beilegen (siehe Liste unten)</li>
+            <li>Per Post an die zuständige Behörde senden oder über das Online-Portal einreichen</li>
+          </ol>
+        )}
+        {behoerde.adresse && (
+          <div style={{ marginTop: 12, padding: 12, background: '#FFF', borderRadius: 8, fontSize: 13 }}>
+            <div style={{ fontWeight: 600, color: '#1A3C2B', marginBottom: 4 }}>Adresse der Behörde:</div>
+            <div style={{ color: '#5A6B60', whiteSpace: 'pre-wrap' }}>{behoerde.adresse}</div>
+          </div>
+        )}
+      </div>
+
+      {/* Nachweise */}
+      {nachweise.length > 0 && (
+        <div style={{ background: '#FFF', borderRadius: 12, padding: 20, marginBottom: 16, border: '1px solid #E2E8E5' }}>
+          <h3 style={{ fontSize: 15, marginBottom: 12 }}>Nachweise beilegen</h3>
+          {nachweise.map((n, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '4px 0', fontSize: 13, color: '#2D3A33' }}>
+              <span style={{ color: '#8AA494', flexShrink: 0, marginTop: 1 }}>•</span>
+              <span>{n}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Bestätigen-Button */}
+      <div style={{ background: '#1A3C2B', borderRadius: 12, padding: 24, marginBottom: 24, textAlign: 'center' }}>
+        {!confirmOpen ? (
+          <>
+            <p style={{ color: '#C8DAD0', fontSize: 13, marginBottom: 12 }}>
+              Sobald Sie den Antrag abgeschickt haben:
+            </p>
+            <button
+              onClick={() => setConfirmOpen(true)}
+              style={{
+                padding: '12px 28px', background: '#E2C044', color: '#1A3C2B',
+                fontWeight: 600, fontSize: 15, borderRadius: 8, border: 'none',
+                cursor: 'pointer', fontFamily: 'var(--font-body)',
+              }}
+            >
+              ✓ Ich habe den Antrag eingereicht
+            </button>
+          </>
+        ) : (
+          <div style={{ textAlign: 'left' }}>
+            <p style={{ color: '#FFF', fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
+              Wie haben Sie den Antrag eingereicht?
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+              {[
+                { value: 'post', label: 'Per Post' },
+                { value: 'online', label: 'Über Online-Portal der Behörde' },
+                { value: 'persoenlich', label: 'Persönlich abgegeben' },
+              ].map(opt => (
+                <label key={opt.value} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
+                  background: submissionMethod === opt.value ? 'rgba(226, 192, 68, 0.2)' : 'transparent',
+                  borderRadius: 6, cursor: 'pointer', fontSize: 14, color: '#FFF',
+                }}>
+                  <input
+                    type="radio" name="submission_method" value={opt.value}
+                    checked={submissionMethod === opt.value}
+                    onChange={e => setSubmissionMethod(e.target.value)}
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => onConfirmSubmission(submissionMethod)}
+                disabled={confirmingSubmission}
+                style={{
+                  flex: 1, padding: '10px 20px',
+                  background: confirmingSubmission ? '#C8DAD0' : '#E2C044',
+                  color: '#1A3C2B',
+                  fontWeight: 600, fontSize: 14, borderRadius: 8, border: 'none',
+                  cursor: confirmingSubmission ? 'wait' : 'pointer',
+                  fontFamily: 'var(--font-body)',
+                }}
+              >
+                {confirmingSubmission ? 'Wird gespeichert...' : 'Bestätigen'}
+              </button>
+              <button
+                onClick={() => setConfirmOpen(false)}
+                disabled={confirmingSubmission}
+                style={{
+                  padding: '10px 20px', background: 'transparent', color: '#C8DAD0',
+                  fontWeight: 500, fontSize: 14, borderRadius: 8,
+                  border: '1px solid rgba(200, 218, 208, 0.3)',
+                  cursor: 'pointer', fontFamily: 'var(--font-body)',
+                }}
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// === VIEW: Eingereicht durch Kunde ===
+function EingereichtView({ app }) {
+  return (
+    <div>
+      <div style={{ textAlign: 'center', padding: '32px 0' }}>
+        <div style={{ marginBottom: 16 }}><AppIcon name="send" size={48} color="#0F6E56" /></div>
+        <h2 style={{ fontSize: 22, marginBottom: 8 }}>Antrag eingereicht</h2>
+        <p style={{ color: '#8AA494', maxWidth: 440, margin: '0 auto 16px', lineHeight: 1.6 }}>
+          Sie haben Ihren Antrag auf {app.leistung_name} bei der Behörde eingereicht. Die Bearbeitung dauert in der Regel 3–8 Wochen.
+        </p>
+      </div>
+
+      {/* Hinweis zur Bescheid-Meldung */}
+      <div style={{ background: '#E1F5EE', borderRadius: 12, padding: 20, marginBottom: 24, border: '1px solid #A8D8C5' }}>
+        <h3 style={{ fontSize: 15, marginBottom: 8, color: '#0F6E56' }}>Wenn Sie einen Bescheid erhalten</h3>
+        <p style={{ fontSize: 13, color: '#0F6E56', margin: '0 0 12px', lineHeight: 1.6 }}>
+          Sobald die Behörde entschieden hat, erhalten Sie einen Bescheid per Post. Melden Sie sich dann per E-Mail an info@adminpilot.de mit dem Ergebnis – wir aktualisieren dann Ihren Antragsstatus.
+        </p>
+        {app.plus_package && (
+          <p style={{ fontSize: 12, color: '#0F6E56', margin: 0, fontStyle: 'italic' }}>
+            <b>Plus-Paket:</b> Auf Wunsch sichten wir Ihren Bescheid auf Vollständigkeit und Plausibilität (keine Rechtsberatung).
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // === HAUPTKOMPONENTE ===
 export default function AntragDetailPage({ params }) {
   const { user } = useAppUser();
@@ -285,22 +501,72 @@ export default function AntragDetailPage({ params }) {
   const [updates, setUpdates] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [shipmentSent, setShipmentSent] = useState(false);
+  const [confirmingSubmission, setConfirmingSubmission] = useState(false);
+
+  async function loadData() {
+    if (!user || !params?.id) return;
+    const [appRes, updRes, docRes] = await Promise.all([
+      supabase.from('applications').select('*').eq('id', params.id).eq('clerk_id', user.id).single(),
+      supabase.from('status_updates').select('*').eq('application_id', params.id).order('created_at', { ascending: false }),
+      supabase.from('documents').select('*').eq('application_id', params.id).order('created_at', { ascending: true }),
+    ]);
+    setApp(appRes.data);
+    setUpdates(updRes.data || []);
+    setDocuments(docRes.data || []);
+    setLoading(false);
+  }
 
   useEffect(() => {
-    if (!user || !params?.id) return;
-    async function load() {
-      const [appRes, updRes, docRes] = await Promise.all([
-        supabase.from('applications').select('*').eq('id', params.id).eq('clerk_id', user.id).single(),
-        supabase.from('status_updates').select('*').eq('application_id', params.id).order('created_at', { ascending: false }),
-        supabase.from('documents').select('*').eq('application_id', params.id).order('created_at', { ascending: true }),
-      ]);
-      setApp(appRes.data);
-      setUpdates(updRes.data || []);
-      setDocuments(docRes.data || []);
-      setLoading(false);
-    }
-    load();
+    loadData();
   }, [user, params?.id]);
+
+  // Polling: Wenn Status = antrag_wird_erstellt, alle 5 Sekunden nachladen
+  useEffect(() => {
+    if (!app || app.status !== 'antrag_wird_erstellt') return;
+    const iv = setInterval(loadData, 5000);
+    return () => clearInterval(iv);
+  }, [app?.status, user, params?.id]);
+
+  const handleConfirmSubmission = async (method) => {
+    setConfirmingSubmission(true);
+    try {
+      const res = await fetch('/api/confirm-submission', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ application_id: app.id, submission_method: method }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await loadData();
+      } else {
+        alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+      }
+    } catch (e) {
+      alert('Verbindungsfehler. Bitte erneut versuchen.');
+    } finally {
+      setConfirmingSubmission(false);
+    }
+  };
+
+  const handleRequestShipment = async () => {
+    try {
+      const res = await fetch('/api/request-plus-shipment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ application_id: app.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShipmentSent(true);
+        await loadData();
+      } else {
+        alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+      }
+    } catch (e) {
+      alert('Verbindungsfehler. Bitte erneut versuchen.');
+    }
+  };
 
   if (loading) return (
     <div style={{ padding: 48, textAlign: 'center' }}>
@@ -318,10 +584,25 @@ export default function AntragDetailPage({ params }) {
   );
 
   const leistung = LEISTUNGEN.find(l => l.id === app.leistung_id);
-  const currentStepIdx = STATUS_STEPS.indexOf(app.status);
-  const isAnalysisComplete = app.status === 'analysis_complete';
-  const isApproved = app.status === 'approved';
-  const isRejected = app.status === 'rejected';
+
+  // Status-Normalisierung: Legacy-Werte auf neue Werte mappen für die Anzeige
+  const effectiveStatus = (() => {
+    switch (app.status) {
+      case 'signature_pending': return 'antrag_bereit';
+      case 'submitted': return 'eingereicht_durch_kunde';
+      case 'approved': return 'bewilligt';
+      case 'rejected': return 'abgelehnt';
+      default: return app.status;
+    }
+  })();
+
+  const currentStepIdx = STATUS_STEPS.indexOf(effectiveStatus);
+  const isAnalysisComplete = effectiveStatus === 'analysis_complete';
+  const isAntragWirdErstellt = effectiveStatus === 'antrag_wird_erstellt';
+  const isAntragBereit = effectiveStatus === 'antrag_bereit';
+  const isEingereicht = effectiveStatus === 'eingereicht_durch_kunde';
+  const isApproved = effectiveStatus === 'bewilligt';
+  const isRejected = effectiveStatus === 'abgelehnt';
 
   return (
     <>
@@ -334,6 +615,7 @@ export default function AntragDetailPage({ params }) {
           <h1 style={{ fontSize: 22, margin: 0, color: '#1A3C2B' }}>{app.leistung_name}</h1>
           <p style={{ color: '#8AA494', margin: '4px 0 0', fontSize: 13 }}>
             Erstellt am {new Date(app.created_at).toLocaleDateString('de-DE')}
+            {app.plus_package && <span style={{ marginLeft: 8, padding: '1px 8px', background: '#FFF8E7', color: '#8B6914', borderRadius: 100, fontSize: 11, fontWeight: 600 }}>Plus-Paket</span>}
           </p>
         </div>
         <span style={{
@@ -347,7 +629,7 @@ export default function AntragDetailPage({ params }) {
 
       {/* Status Stepper */}
       <div style={{ display: 'flex', gap: 3, marginBottom: 32 }}>
-        {STATUS_STEPS.slice(0, 7).map((step, i) => (
+        {STATUS_STEPS.slice(0, 8).map((step, i) => (
           <div key={step} style={{
             flex: 1, height: 4, borderRadius: 2,
             background: i <= currentStepIdx ? '#1A3C2B' : '#C8DAD0',
@@ -357,7 +639,7 @@ export default function AntragDetailPage({ params }) {
       </div>
 
       {/* === STATUS: Dokumente hochladen === */}
-      {app.status === 'documents_pending' && (
+      {effectiveStatus === 'documents_pending' && (
         <div style={{ textAlign: 'center', padding: '32px 0' }}>
           <div style={{ marginBottom: 16 }}><AppIcon name="upload" size={48} color="#C8DAD0" /></div>
           <h2 style={{ fontSize: 20, marginBottom: 8 }}>Dokumente hochladen</h2>
@@ -387,7 +669,7 @@ export default function AntragDetailPage({ params }) {
       {isAnalysisComplete && (
         <>
           <AnalysisSummary app={app} documents={documents} leistung={leistung} />
-          <NextSteps app={app} status={app.status} />
+          <NextSteps status={effectiveStatus} />
 
           {/* CTA */}
           <div style={{
@@ -396,17 +678,14 @@ export default function AntragDetailPage({ params }) {
             <p style={{ color: '#C8DAD0', fontSize: 14, marginBottom: 8 }}>Nächster Schritt</p>
             <h2 style={{ color: '#FFF', fontSize: 22, marginBottom: 4 }}>Antrag jetzt beauftragen</h2>
             <p style={{ color: '#8AA494', fontSize: 14, marginBottom: 20 }}>
-              Einmalig {PRICING.baseFeeLabel}. Geld zurück bei Ablehnung.
+              Ab {PRICING.baseFeeLabel}. Geld zurück bei Ablehnung.
             </p>
             <a href={`/app/zahlung/${app.id}`} style={{
               display: 'inline-block', background: '#E2C044', color: '#1A3C2B', fontWeight: 600,
               fontSize: 18, padding: '14px 40px', borderRadius: 8, textDecoration: 'none',
             }}>
-              Jetzt beauftragen – {PRICING.baseFeeLabel} →
+              Jetzt beauftragen →
             </a>
-            <p style={{ color: '#8AA494', fontSize: 12, marginTop: 12, marginBottom: 0 }}>
-              Sicher bezahlen mit Kreditkarte oder SEPA-Lastschrift
-            </p>
           </div>
 
           {/* Analyse verbessern */}
@@ -417,8 +696,7 @@ export default function AntragDetailPage({ params }) {
             <div style={{ flex: 1, minWidth: 200 }}>
               <h3 style={{ fontSize: 15, color: '#1A3C2B', marginBottom: 6 }}>Analyse verbessern?</h3>
               <p style={{ fontSize: 13, color: '#8AA494', margin: 0, lineHeight: 1.6 }}>
-                Laden Sie weitere oder bessere Dokumente hoch, um eine genauere Berechnung zu erhalten. 
-                Die neue Analyse ersetzt die bisherige.
+                Laden Sie weitere oder bessere Dokumente hoch, um eine genauere Berechnung zu erhalten.
               </p>
             </div>
             <a href={`/app/upload?antrag=${app.id}`} style={{
@@ -432,32 +710,10 @@ export default function AntragDetailPage({ params }) {
         </>
       )}
 
-      {/* === STATUS: Unterschrift nötig === */}
-      {app.status === 'signature_pending' && (
+      {/* === STATUS: Zahlung offen === */}
+      {effectiveStatus === 'payment_pending' && (
         <div style={{ textAlign: 'center', padding: '32px 0' }}>
           <div style={{ marginBottom: 16 }}>
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#E2C044" strokeWidth="1.5"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-          </div>
-          <h2 style={{ fontSize: 20, marginBottom: 8 }}>Zahlung erhalten – Vollmacht unterschreiben</h2>
-          <p style={{ color: '#8AA494', maxWidth: 440, margin: '0 auto 24px', lineHeight: 1.6 }}>
-            Ihre Zahlung von {PRICING.baseFeeLabel} wurde bestätigt. Im nächsten Schritt unterschreiben Sie die Vollmacht, damit wir Ihren Antrag auf {app.leistung_name} bei der Behörde einreichen können.
-          </p>
-          <a href={`/app/signatur/${app.id}`} style={{
-            display: 'inline-block', background: '#1A3C2B', color: '#FFF', fontWeight: 600,
-            fontSize: 18, padding: '14px 40px', borderRadius: 8, textDecoration: 'none',
-          }}>
-            Jetzt unterschreiben →
-          </a>
-          <div style={{ marginTop: 24 }}>
-            <NextSteps app={app} status={app.status} />
-          </div>
-        </div>
-      )}
-
-      {/* === STATUS: Zahlung offen === */}
-      {app.status === 'payment_pending' && (
-        <div style={{ textAlign: 'center', padding: '32px 0' }}>
-          <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.5 }}>
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#854F0B" strokeWidth="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
           </div>
           <h2 style={{ fontSize: 20, marginBottom: 8 }}>Zahlung ausstehend</h2>
@@ -468,122 +724,39 @@ export default function AntragDetailPage({ params }) {
             display: 'inline-block', background: '#E2C044', color: '#1A3C2B', fontWeight: 600,
             padding: '14px 40px', borderRadius: 8, textDecoration: 'none', fontSize: 16,
           }}>
-            Jetzt bezahlen – {PRICING.baseFeeLabel} →
+            Jetzt bezahlen →
           </a>
         </div>
       )}
 
+      {/* === STATUS: Antrag wird erstellt === */}
+      {isAntragWirdErstellt && (
+        <>
+          <AntragWirdErstelltView />
+          <NextSteps status={effectiveStatus} />
+        </>
+      )}
+
+      {/* === STATUS: Antrag bereit === */}
+      {isAntragBereit && (
+        <>
+          <AntragBereitView
+            app={app}
+            onConfirmSubmission={handleConfirmSubmission}
+            onRequestShipment={handleRequestShipment}
+            shipmentSent={shipmentSent}
+            confirmingSubmission={confirmingSubmission}
+          />
+          <NextSteps status={effectiveStatus} />
+        </>
+      )}
+
       {/* === STATUS: Eingereicht === */}
-      {app.status === 'submitted' && (
-        <div>
-          <div style={{ textAlign: 'center', padding: '32px 0' }}>
-            <div style={{ marginBottom: 16 }}><AppIcon name="send" size={48} color="#0F6E56" /></div>
-            <h2 style={{ fontSize: 20, marginBottom: 8 }}>Ihr Antrag wird bearbeitet</h2>
-            <p style={{ color: '#8AA494', maxWidth: 400, margin: '0 auto 16px' }}>
-              Der Antrag auf {app.leistung_name} wird bei der zuständigen Behörde eingereicht.
-              Die Bearbeitung dauert in der Regel 3–8 Wochen.
-            </p>
-            <p style={{ fontSize: 14, color: '#1A3C2B', fontWeight: 600 }}>
-              Wir informieren Sie per E-Mail, sobald es ein Update gibt.
-            </p>
-          </div>
-
-          {/* Antragsstatus-Karte */}
-          {app.generated_antrag && !app.generated_antrag.parse_error && (() => {
-            const ga = app.generated_antrag;
-            const meta = ga.meta || {};
-            const felder = ga.ausgefuellte_felder || {};
-            const fehlend = ga.fehlende_felder || [];
-            const nachweise = ga.nachweise_erforderlich || [];
-            const modus = meta.modus;
-            const behoerde = ga.behoerde_empfaenger || {};
-
-            return (
-              <div style={{ marginBottom: 24 }}>
-                {/* Modus-Anzeige */}
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
-                  background: modus === 'pdf_vorhanden' ? '#E1F5EE' : '#FFF8E7',
-                  borderRadius: '8px 8px 0 0', fontSize: 13,
-                  border: `1px solid ${modus === 'pdf_vorhanden' ? '#A8D8C5' : '#E8D5A3'}`,
-                  borderBottom: 'none',
-                }}>
-                  <span style={{ fontWeight: 600, color: modus === 'pdf_vorhanden' ? '#0F6E56' : '#8B6914' }}>
-                    {modus === 'pdf_vorhanden'
-                      ? `PDF-Formular (${meta.kennung}) wird ausgefüllt`
-                      : modus === 'kein_antrag'
-                        ? 'Kein Antrag nötig'
-                        : 'Formloser Antrag per E-Mail'}
-                  </span>
-                  {meta.online_portal && (
-                    <a href={meta.online_portal} target="_blank" rel="noopener" style={{ marginLeft: 'auto', fontSize: 12, color: '#8AA494' }}>Online-Portal →</a>
-                  )}
-                </div>
-
-                {/* Hauptkarte */}
-                <div style={{ background: '#F8FAF9', borderRadius: '0 0 12px 12px', padding: 20, border: '1px solid #E2E8E5' }}>
-                  {/* Eckdaten */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 13, marginBottom: 16 }}>
-                    <div style={{ padding: 10, background: '#FFF', borderRadius: 6 }}>
-                      <div style={{ color: '#8AA494', marginBottom: 3, fontSize: 11 }}>Leistung</div>
-                      <div style={{ fontWeight: 600, color: '#1A3C2B' }}>{meta.leistung || app.leistung_name}</div>
-                    </div>
-                    <div style={{ padding: 10, background: '#FFF', borderRadius: 6 }}>
-                      <div style={{ color: '#8AA494', marginBottom: 3, fontSize: 11 }}>Bundesland</div>
-                      <div style={{ fontWeight: 600, color: '#1A3C2B' }}>{meta.bundesland || '–'}</div>
-                    </div>
-                    <div style={{ padding: 10, background: '#FFF', borderRadius: 6 }}>
-                      <div style={{ color: '#8AA494', marginBottom: 3, fontSize: 11 }}>Daten erkannt</div>
-                      <div style={{ fontWeight: 600, color: '#0F6E56' }}>
-                        {Object.keys(felder).length} von {Object.keys(felder).length + fehlend.length}
-                      </div>
-                    </div>
-                    <div style={{ padding: 10, background: '#FFF', borderRadius: 6 }}>
-                      <div style={{ color: '#8AA494', marginBottom: 3, fontSize: 11 }}>Behörde</div>
-                      <div style={{ fontWeight: 600, color: '#1A3C2B', fontSize: 11 }}>{behoerde.name || meta.leistung_id || '–'}</div>
-                    </div>
-                  </div>
-
-                  {/* Fehlende Felder */}
-                  {fehlend.length > 0 && (
-                    <div style={{ padding: 12, background: '#FFF8E7', borderRadius: 8, border: '1px solid #E8D5A3', marginBottom: 12 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#8B6914', marginBottom: 4 }}>
-                        {fehlend.length} fehlende Angabe{fehlend.length > 1 ? 'n' : ''}
-                      </div>
-                      <p style={{ fontSize: 11, color: '#8B6914', margin: 0 }}>
-                        Unser Team wird Sie kontaktieren, um diese zu ergänzen.
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Erforderliche Nachweise */}
-                  {nachweise.length > 0 && (
-                    <div style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#1A3C2B', marginBottom: 6 }}>Erforderliche Nachweise</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        {nachweise.map((n, i) => (
-                          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, color: '#5A6B60' }}>
-                            <span style={{ color: '#8AA494', flexShrink: 0, marginTop: 1 }}>•</span>
-                            <span>{n}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Sonder-Hinweis */}
-                  {ga.sonder_hinweis && (
-                    <div style={{ padding: 10, background: '#FFF5F5', borderRadius: 6, border: '1px solid #E8A3A3', fontSize: 12, color: '#C0392B' }}>
-                      {ga.sonder_hinweis}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-
-          <NextSteps app={app} status={app.status} />
-        </div>
+      {isEingereicht && (
+        <>
+          <EingereichtView app={app} />
+          <NextSteps status={effectiveStatus} />
+        </>
       )}
 
       {/* === STATUS: Bewilligt === */}
@@ -614,7 +787,7 @@ export default function AntragDetailPage({ params }) {
             </p>
           </div>
           <a href="mailto:info@adminpilot.de" style={{ color: '#8AA494', fontSize: 14, textDecoration: 'underline' }}>
-            Kontakt aufnehmen für Widerspruch
+            Kontakt aufnehmen
           </a>
         </div>
       )}

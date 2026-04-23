@@ -28,7 +28,6 @@ export const FORM_CONFIG = {
       'Personalausweis oder Reisepass des Antragstellers (Kopie)',
       'Steuer-Identifikationsnummer des Antragstellers',
       'Steuer-Identifikationsnummer des Kindes',
-      'Vollmacht (falls durch AdminPilot eingereicht)',
     ],
     felder: {
       // Abschnitt 1: Antragsteller
@@ -87,7 +86,6 @@ export const FORM_CONFIG = {
       'Kontoauszüge der letzten 3 Monate (Vermögensnachweis)',
       'Kindergeldbescheid (Kindergeld-Nummer)',
       'Personalausweis (Kopie)',
-      'Vollmacht (falls durch AdminPilot eingereicht)',
     ],
     felder: {
       familienname: { label: 'Familienname', ocr_quellen: ['name', 'familienname'] },
@@ -133,18 +131,13 @@ export const FORM_CONFIG = {
       'Rentenbescheid (Kopie)',
       'Nachweis der KV-Mitgliedschaft (Bescheinigung der Krankenkasse)',
       'Bei privater KV: Beitragsnachweis',
-      'Vollmacht für AdminPilot (Feld "Bevollmächtigter" im Formular!)',
     ],
-    hinweis_vollmacht: 'Das R0820 hat auf Seite 1 ein eigenes Feld "Bevollmächtigter" – hier AdminPilot eintragen.',
     felder: {
       familienname_vorname: { label: 'Familienname, Vorname', ocr_quellen: ['name', 'antragsteller'] },
       versicherungsnummer: { label: 'Rentenversicherungsnummer', ocr_quellen: ['versicherungsnummer', 'rv_nummer', 'sozialversicherungsnummer'] },
       geburtsdatum: { label: 'Geburtsdatum', format: 'TT.MM.JJJJ' },
       strasse_hausnr: { label: 'Straße, Hausnummer', ocr_quellen: ['adresse'] },
       plz_ort: { label: 'PLZ und Ort' },
-      // Bevollmächtigter (AdminPilot)
-      bevollmaechtigter_name: { label: 'Bevollmächtigter', default: 'ALEVOR Mittelstandspartner GmbH (AdminPilot)' },
-      bevollmaechtigter_adresse: { label: 'Adresse Bevollmächtigter', default: 'Titurelstraße 10, 81925 München' },
       // KV-Angaben
       krankenkasse_name: { label: 'Name der Krankenkasse', ocr_quellen: ['krankenkasse', 'kv_name', 'versicherung'] },
       versicherungsart: { label: 'Versicherungsart', optionen: ['freiwillig gesetzlich', 'privat'], ocr_quellen: ['versicherungsart'] },
@@ -153,7 +146,7 @@ export const FORM_CONFIG = {
       rentenbeginn: { label: 'Rentenbeginn (Datum)', format: 'MM.JJJJ', ocr_quellen: ['rentenbeginn'] },
       weitere_rente: { label: 'Weitere Rente?', optionen: ['nein', 'ja'], default: 'nein' },
     },
-    anschreiben_vorlage: 'Sehr geehrte Damen und Herren,\n\nhiermit beantrage ich als Bevollmächtigter für {antragsteller_name} (Vers.-Nr.: {versicherungsnummer}) einen Zuschuss zur Krankenversicherung nach §106 SGB VI.\n\nDie Vollmacht liegt bei. {antragsteller_name} ist {versicherungsart} krankenversichert bei {krankenkasse_name}.\n\nMit freundlichen Grüßen\nALEVOR Mittelstandspartner GmbH\n(AdminPilot)',
+    anschreiben_vorlage: 'Sehr geehrte Damen und Herren,\n\nhiermit beantrage ich, {antragsteller_name} (Vers.-Nr.: {versicherungsnummer}), einen Zuschuss zur Krankenversicherung nach §106 SGB VI.\n\nIch bin {versicherungsart} krankenversichert bei {krankenkasse_name}. Die erforderlichen Nachweise liegen bei.\n\nMit freundlichen Grüßen\n{antragsteller_name}',
   },
 
   // ================================================================
@@ -179,7 +172,6 @@ export const FORM_CONFIG = {
       'Geburtsurkunden der Kinder (Kopie)',
       'Personalausweis (Kopie)',
       'Rentenversicherungsnummer',
-      'Vollmacht für AdminPilot',
     ],
     felder: {
       familienname_vorname: { label: 'Familienname, Vorname', ocr_quellen: ['name'] },
@@ -246,7 +238,6 @@ export const FORM_CONFIG = {
       'Personalausweis (Kopie)',
       'Rentenbescheid (falls Rentner)',
       'Kontoauszüge (letzte 3 Monate)',
-      'Vollmacht für AdminPilot',
     ],
     felder: {
       familienname: { label: 'Familienname', ocr_quellen: ['name', 'familienname', 'mieter'] },
@@ -302,7 +293,6 @@ export const FORM_CONFIG = {
       'Arbeitgeberbescheinigung über Zuschuss zum Mutterschaftsgeld',
       'Einkommensnachweise 12 Monate vor Geburt (Gehaltsabrechnungen)',
       'Personalausweis (Kopie)',
-      'Vollmacht für AdminPilot',
     ],
     hinweis_original: 'ACHTUNG: Elterngeldstellen verlangen oft ORIGINALE Geburtsurkunde! Kann nicht per E-Mail gesendet werden. Nutzer muss Geburtsurkunde per Post nachreichen.',
     felder: {

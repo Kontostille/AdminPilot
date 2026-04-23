@@ -1,12 +1,13 @@
 export const config = { runtime: 'edge' };
 
 // =====================================================
-// AUTO-ANTRAGSERSTELLUNG v2 – mit intelligentem Fallback
+// AUTO-ANTRAGSERSTELLUNG v3 – RDG-konforme Ausfuellhilfe
 // =====================================================
 // 1. Prüft ob PDF-Template in Supabase vorhanden
 // 2. Wenn ja: Mappt OCR-Daten auf Formularfelder
-// 3. Wenn nein: Generiert formellen Antrag als Anschreiben
+// 3. Wenn nein: Generiert formellen Antrag als Anschreiben (Kunde = Antragsteller)
 // 4. Speichert Ergebnis in applications.generated_antrag
+// 5. Setzt Status auf "antrag_bereit" (Kunde reicht selbst ein)
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -34,6 +35,7 @@ async function templateExists(path) {
 }
 
 // === LEISTUNGS-KONFIGURATION ===
+// Vollmacht-Referenzen komplett entfernt. Kunde ist Antragsteller.
 const L = {
   kindergeld: {
     name: 'Kindergeld', kennung: 'KG1',
@@ -59,9 +61,8 @@ const L = {
     typ: 'bundesweit',
     templates: ['bundesweit/R0820_KV_Zuschuss.pdf'],
     portal: 'https://www.eservice-drv.de/eantrag/hinweis-ohne-karte-direkt.seam?formular=r0820',
-    vollmacht_feld: true,
-    felder: ['Familienname, Vorname','Rentenversicherungsnummer','Geburtsdatum','Adresse','Bevollmächtigter: ALEVOR Mittelstandspartner GmbH, Titurelstr. 10, 81925 München','Krankenkasse','Versicherungsart (freiwillig gesetzlich/privat)','Monatlicher KV-Beitrag (EUR)','Bruttorente (EUR/Monat)','Rentenbeginn'],
-    nachweise: ['Rentenbescheid (Kopie)','KV-Mitgliedsbescheinigung','Bei privater KV: Beitragsnachweis','Vollmacht'],
+    felder: ['Familienname, Vorname','Rentenversicherungsnummer','Geburtsdatum','Adresse','Krankenkasse','Versicherungsart (freiwillig gesetzlich/privat)','Monatlicher KV-Beitrag (EUR)','Bruttorente (EUR/Monat)','Rentenbeginn'],
+    nachweise: ['Rentenbescheid (Kopie)','KV-Mitgliedsbescheinigung','Bei privater KV: Beitragsnachweis'],
   },
   kindererziehungszeiten: {
     name: 'Kindererziehungszeiten', kennung: 'V0800',
@@ -120,10 +121,18 @@ export default async function handler(request) {
     const cfg = L[app.leistung_id];
     if (!cfg) return Response.json({ success: false, error: `Unknown: ${app.leistung_id}` });
 
-    // Kein Antrag nötig
+    // Kein Antrag nötig (z.B. EM-Rentenzuschlag)
     if (cfg.typ === 'kein_antrag') {
       const r = { modus: 'kein_antrag', hinweis: cfg.hinweis, meta: { leistung: cfg.name } };
-      await supaFetch(`applications?id=eq.${application_id}`, { method: 'PATCH', body: JSON.stringify({ generated_antrag: r, updated_at: new Date().toISOString() }) });
+      await supaFetch(`applications?id=eq.${application_id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          generated_antrag: r,
+          status: 'antrag_bereit',
+          antrag_bereit_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }),
+      });
       return Response.json({ success: true, antrag: r });
     }
 
@@ -145,14 +154,18 @@ export default async function handler(request) {
     const modus = hasTpl ? 'pdf_vorhanden' : (cfg.formlos ? 'formloser_antrag' : 'anschreiben_generieren');
     const blName = BL[app.bundesland] || app.bundesland || '';
 
-    // Claude Prompt
-    const prompt = `Du bist Experte für deutsche Sozialleistungsanträge. Erstelle einen vollständigen ${cfg.name}-Antrag.
+    // Claude Prompt – Kunde ist Antragsteller (nicht AdminPilot)
+    const prompt = `Du bist Experte für deutsche Sozialleistungsanträge. Erstelle einen vollständigen ${cfg.name}-Antrag, der vom Kunden selbst unterschrieben und eingereicht wird.
+
+WICHTIG: Der Kunde ist der Antragsteller. AdminPilot ist nur technischer Ausfüllservice.
+Das Anschreiben muss aus der Ich-Perspektive des Kunden verfasst sein ("Hiermit beantrage ich...").
+KEINE Formulierungen wie "als Bevollmächtigter" oder "im Namen von".
 
 ANTRAG: ${cfg.name} (${cfg.kennung})
 BEHÖRDE: ${cfg.behoerde}
 BUNDESLAND: ${blName}
 PLZ: ${app.plz}
-MODUS: ${modus === 'pdf_vorhanden' ? 'PDF-Template vorhanden – alle Felder einzeln ausfüllen' : 'Kein PDF – formelles Anschreiben generieren das als eigenständiger Antrag per E-Mail funktioniert'}
+MODUS: ${modus === 'pdf_vorhanden' ? 'PDF-Template vorhanden – alle Felder einzeln ausfüllen' : 'Kein PDF – formelles Anschreiben generieren das als eigenständiger Antrag funktioniert'}
 
 FELDER DIE AUSGEFÜLLT WERDEN MÜSSEN:
 ${cfg.felder.map((f,i) => `${i+1}. ${f}`).join('\n')}
@@ -164,12 +177,13 @@ ERSTELLE DIESES JSON:
 {
   "ausgefuellte_felder": { "Feldname": "Wert", ... },
   "fehlende_felder": ["Feld1", "Feld2"],
-  "anschreiben": "Betreff: Antrag auf ${cfg.name}\\n\\nSehr geehrte Damen und Herren,\\n\\n[ausführlicher formeller Antrag mit ALLEN verfügbaren Daten, 4-8 Absätze, inkl. Unterschriftenzeile]\\n\\nMit freundlichen Grüßen\\n[Name]",
+  "anschreiben": "Betreff: Antrag auf ${cfg.name}\\n\\nSehr geehrte Damen und Herren,\\n\\nhiermit beantrage ich, [Kundenname], ${cfg.name}. [weitere 3-6 Absätze mit ALLEN verfügbaren Daten. Kunde schreibt aus eigener Perspektive.]\\n\\nMit freundlichen Grüßen\\n[Datum]\\n[Unterschrift Kunde]",
   "behoerde_empfaenger": {
     "name": "Zuständige Behörde für PLZ ${app.plz}",
     "adresse": "geschätzte Adresse",
-    "email_tipp": "So findet man die E-Mail: [konkreter Tipp]"
+    "online_portal_hinweis": "Tipp zur Online-Einreichung falls möglich"
   },
+  "einreichungsanleitung": "Konkrete Schritte für den Kunden: (1) PDF ausdrucken, (2) eigenhändig unterschreiben, (3) alle Nachweise beilegen, (4) per Post senden an [Adresse] ODER online einreichen über [Portal].",
   "dokumente_beifuegen": ["Dok1", "Dok2"]
 }
 
@@ -195,15 +209,21 @@ Antworte NUR mit JSON.`;
         bundesland: blName, bundesland_id: app.bundesland, plz: app.plz,
         modus, template_vorhanden: hasTpl, template_pfad: hasTpl ? tplPath : null,
         online_portal: cfg.portal || null,
-        vollmacht_feld: cfg.vollmacht_feld || false,
         generated_at: new Date().toISOString(), ocr_count: ocr.length,
       },
       nachweise_erforderlich: cfg.nachweise,
       sonder_hinweis: cfg.hinweis || null,
     };
 
+    // Status setzen auf "antrag_bereit" (Kunde muss jetzt einreichen)
     await supaFetch(`applications?id=eq.${application_id}`, {
-      method: 'PATCH', body: JSON.stringify({ generated_antrag: fullResult, updated_at: new Date().toISOString() }),
+      method: 'PATCH',
+      body: JSON.stringify({
+        generated_antrag: fullResult,
+        status: 'antrag_bereit',
+        antrag_bereit_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }),
     });
 
     const nOk = Object.keys(antrag.ausgefuellte_felder || {}).length;
@@ -211,10 +231,10 @@ Antworte NUR mit JSON.`;
     await supaFetch('status_updates', {
       method: 'POST',
       body: JSON.stringify({
-        application_id, status: 'submitted',
+        application_id, status: 'antrag_bereit',
         message: modus === 'pdf_vorhanden'
-          ? `Antrag erstellt (${nOk} Felder ausgefüllt, ${nMiss} fehlen). Template: ${cfg.kennung}.`
-          : `Formloser Antrag generiert (${nOk} Daten erkannt). Anschreiben bereit zum Versand.`,
+          ? `Antrag bereit (${nOk} Felder ausgefüllt, ${nMiss} fehlen). Template: ${cfg.kennung}. Bitte prüfen, unterschreiben und einreichen.`
+          : `Anschreiben generiert (${nOk} Daten erkannt). Bitte prüfen, unterschreiben und einreichen.`,
       }),
     });
 

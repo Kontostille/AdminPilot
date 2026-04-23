@@ -12,6 +12,7 @@ export default function ZahlungPage({ params }) {
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState('');
+  const [plusPackage, setPlusPackage] = useState(false);
 
   useEffect(() => {
     if (!user || !params?.id) return;
@@ -23,6 +24,7 @@ export default function ZahlungPage({ params }) {
   if (!app) return <div style={{ padding: 48, textAlign: 'center' }}><h2>Antrag nicht gefunden</h2><a href="/app">Dashboard</a></div>;
 
   const monthlyFee = Math.round(Number(app.estimated_monthly) * PRICING.successFeePercent / 100);
+  const totalToday = plusPackage ? PRICING.baseFee + PRICING.plusFee : PRICING.baseFee;
 
   const handlePayment = async () => {
     setPaying(true);
@@ -36,13 +38,13 @@ export default function ZahlungPage({ params }) {
           application_id: app.id,
           leistung_name: app.leistung_name,
           estimated_monthly: app.estimated_monthly,
+          plus_package: plusPackage,
         }),
       });
 
       const data = await res.json();
 
       if (data.success && data.checkout_url) {
-        // Redirect zu Stripe Checkout
         window.location.href = data.checkout_url;
       } else {
         setError(data.error || 'Zahlung konnte nicht gestartet werden.');
@@ -57,7 +59,7 @@ export default function ZahlungPage({ params }) {
   return (
     <>
       <SEOHead title="Antrag beauftragen" noindex />
-      <div style={{ maxWidth: 500, margin: '0 auto' }}>
+      <div style={{ maxWidth: 520, margin: '0 auto' }}>
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <LeistungIcon id={app.leistung_id} size={48} />
@@ -66,42 +68,102 @@ export default function ZahlungPage({ params }) {
         </div>
 
         {/* Zusammenfassung */}
-        <div style={{ background: '#F8FAF9', borderRadius: 12, padding: 24, marginBottom: 24 }}>
+        <div style={{ background: '#F8FAF9', borderRadius: 12, padding: 24, marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid #E2E8E5' }}>
             <span style={{ color: '#8AA494', fontSize: 14 }}>Geschätzter Anspruch</span>
             <span style={{ fontWeight: 600, color: '#E2C044', fontFamily: 'var(--font-mono)', fontSize: 18 }}>~{Number(app.estimated_monthly).toLocaleString('de-DE')} €/Monat</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 14 }}>
-            <span style={{ color: '#8AA494' }}>Grundgebühr (einmalig)</span>
+            <span style={{ color: '#2D3A33' }}>Basis-Service (einmalig)</span>
             <span style={{ fontWeight: 600, color: '#1A3C2B' }}>{PRICING.baseFeeLabel}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-            <span style={{ color: '#8AA494' }}>Erfolgsgebühr (nur bei Bewilligung)</span>
-            <span style={{ fontWeight: 500, color: '#1A3C2B' }}>~{monthlyFee} €/Mon. (1. Jahr)</span>
+          {plusPackage && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 14 }}>
+              <span style={{ color: '#2D3A33' }}>Plus-Paket</span>
+              <span style={{ fontWeight: 600, color: '#1A3C2B' }}>{PRICING.plusFeeLabel}</span>
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#8AA494' }}>
+            <span>Erfolgsgebühr (nur bei Bewilligung)</span>
+            <span>~{monthlyFee} €/Mon. im 1. Jahr</span>
+          </div>
+        </div>
+
+        {/* Plus-Paket Toggle */}
+        <div
+          onClick={() => setPlusPackage(!plusPackage)}
+          style={{
+            background: plusPackage ? '#FFF8E7' : '#FFF',
+            border: `2px solid ${plusPackage ? '#E2C044' : '#E2E8E5'}`,
+            borderRadius: 12,
+            padding: 16,
+            cursor: 'pointer',
+            marginBottom: 16,
+            transition: 'all 0.15s',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            {/* Checkbox visual */}
+            <div style={{
+              width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+              background: plusPackage ? '#E2C044' : '#FFF',
+              border: `2px solid ${plusPackage ? '#E2C044' : '#C8DAD0'}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              marginTop: 2,
+            }}>
+              {plusPackage && <span style={{ color: '#1A3C2B', fontWeight: 700, fontSize: 14 }}>✓</span>}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
+                <span style={{ fontSize: 15, fontWeight: 600, color: '#1A3C2B' }}>Plus-Paket dazubuchen</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#8B6914', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>+{PRICING.plusFeeLabel}</span>
+              </div>
+              <p style={{ fontSize: 13, color: '#5A6B60', margin: 0, lineHeight: 1.5 }}>
+                Versandumschlag mit Anschreiben, automatische Erinnerungen zum Nachfassen, zweite Durchsicht Ihres Bescheids.
+              </p>
+              {plusPackage && (
+                <ul style={{ fontSize: 12, color: '#5A6B60', margin: '8px 0 0', paddingLeft: 16, lineHeight: 1.6 }}>
+                  {PRICING.plusFeatures.map((f, i) => <li key={i}>{f}</li>)}
+                </ul>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Heute zu zahlen */}
         <div style={{ background: '#1A3C2B', borderRadius: 12, padding: 24, color: '#FFF', textAlign: 'center', marginBottom: 24 }}>
           <p style={{ fontSize: 12, color: '#8AA494', marginBottom: 4 }}>Heute zu zahlen</p>
-          <div style={{ fontSize: 40, fontWeight: 700, fontFamily: 'var(--font-mono)', marginBottom: 4 }}>{PRICING.baseFeeLabel}</div>
-          <p style={{ fontSize: 12, color: '#C8DAD0', marginBottom: 0 }}>Geld zurück bei Ablehnung</p>
+          <div style={{ fontSize: 40, fontWeight: 700, fontFamily: 'var(--font-mono)', marginBottom: 4 }}>
+            {totalToday} €
+          </div>
+          <p style={{ fontSize: 12, color: '#C8DAD0', marginBottom: 0 }}>
+            {plusPackage ? `${PRICING.baseFeeLabel} Basis + ${PRICING.plusFeeLabel} Plus` : 'Geld zurück bei Ablehnung'}
+          </p>
         </div>
 
         {/* Was im Preis enthalten ist */}
         <div style={{ marginBottom: 24 }}>
+          <h3 style={{ fontSize: 14, color: '#1A3C2B', marginBottom: 12 }}>Im Preis enthalten:</h3>
           {[
-            'KI-Analyse Ihrer Dokumente',
-            'Vollständige Antragserstellung',
-            'Digitale Signatur & Einreichung',
+            'Automatische Analyse Ihrer Dokumente',
+            'Vollständige Antragserstellung als PDF',
+            'Schritt-für-Schritt-Einreichungsanleitung',
             'Status-Tracking per E-Mail',
-            'Geld-zurück-Garantie bei Ablehnung',
+            'Geld-zurück-Garantie bei Ablehnung (Basis-Gebühr)',
           ].map((item, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', fontSize: 14 }}>
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', fontSize: 13 }}>
               <span style={{ color: '#0F6E56', fontWeight: 700 }}>✓</span>
               <span style={{ color: '#2D3A33' }}>{item}</span>
             </div>
           ))}
+        </div>
+
+        {/* Rechtlicher Hinweis */}
+        <div style={{ padding: 12, background: '#FFF8E7', border: '1px solid #E8D5A3', borderRadius: 8, marginBottom: 16, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <AppIcon name="scale" size={14} />
+          <p style={{ fontSize: 11, color: '#8B6914', margin: 0, lineHeight: 1.5 }}>
+            AdminPilot ist eine technische Ausfüllhilfe nach § 2 Abs. 2 RDG. Wir bereiten Ihren Antrag vor, Sie reichen ihn selbst bei der zuständigen Behörde ein. Keine Rechts- oder Sozialberatung.
+          </p>
         </div>
 
         {/* Error */}
@@ -120,7 +182,7 @@ export default function ZahlungPage({ params }) {
           cursor: paying ? 'wait' : 'pointer', marginBottom: 12,
           fontFamily: 'var(--font-body)',
         }}>
-          {paying ? 'Weiterleitung zu Stripe...' : `Jetzt sicher bezahlen – ${PRICING.baseFeeLabel} →`}
+          {paying ? 'Weiterleitung zu Stripe...' : `Jetzt sicher bezahlen – ${totalToday} € →`}
         </button>
 
         <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 24 }}>
