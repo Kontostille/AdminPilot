@@ -35,14 +35,12 @@ import NeuerAntragPage from './pages/app/NeuerAntragPage';
 import UploadPage from './pages/app/UploadPage';
 import AnalysePage from './pages/app/AnalysePage';
 import AntragDetailPage from './pages/app/AntragDetailPage';
-import SignaturPage from './pages/app/SignaturPage';
 import ZahlungPage from './pages/app/ZahlungPage';
 import StatusPage from './pages/app/StatusPage';
 import DokumentePage from './pages/app/DokumentePage';
 import ProfilPage from './pages/app/ProfilPage';
 import AppHilfePage from './pages/app/AppHilfePage';
 import ZahlungErfolgreichPage from './pages/app/ZahlungErfolgreichPage';
-import SignaturCallbackPage from './pages/app/SignaturCallbackPage';
 
 // === System Pages ===
 import LoginPage from './pages/system/LoginPage';
@@ -83,7 +81,6 @@ const APP_ROUTES = {
   '/app/profil': ProfilPage,
   '/app/hilfe': AppHilfePage,
   '/app/zahlung-erfolgreich': ZahlungErfolgreichPage,
-  '/app/signatur-callback': SignaturCallbackPage,
 };
 
 const AUTH_ROUTES = {
@@ -95,7 +92,6 @@ const AUTH_ROUTES = {
 const DYNAMIC_ROUTES = [
   { pattern: '/leistungen/:slug', component: LeistungDetailPage, layout: 'public' },
   { pattern: '/app/antrag/:id', component: AntragDetailPage, layout: 'app' },
-  { pattern: '/app/signatur/:id', component: SignaturPage, layout: 'app' },
   { pattern: '/app/zahlung/:id', component: ZahlungPage, layout: 'app' },
   { pattern: '/app/status/:id', component: StatusPage, layout: 'app' },
   { pattern: '/ratgeber/:slug', component: RatgeberPage, layout: 'public' },
@@ -110,15 +106,12 @@ export default function App() {
     return () => window.removeEventListener('popstate', handleNav);
   }, []);
 
-  // Scroll to top on navigation
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [path]);
 
-  // Determine which page and layout to render
   let content = null;
 
-  // 1. Check static routes
   if (PUBLIC_ROUTES[path]) {
     const Page = PUBLIC_ROUTES[path];
     content = <PublicLayout><Page /></PublicLayout>;
@@ -129,7 +122,6 @@ export default function App() {
     const Page = AUTH_ROUTES[path];
     content = <AuthLayout><Page /></AuthLayout>;
   } else {
-    // 2. Check dynamic routes
     for (const route of DYNAMIC_ROUTES) {
       const params = matchRoute(route.pattern, path);
       if (params) {
@@ -142,7 +134,6 @@ export default function App() {
         break;
       }
     }
-    // 3. 404
     if (!content) content = <PublicLayout><NotFoundPage /></PublicLayout>;
   }
 

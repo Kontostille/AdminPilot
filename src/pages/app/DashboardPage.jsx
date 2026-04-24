@@ -13,12 +13,26 @@ const STATUS_CONFIG = {
   analyzing: { label: 'Wird analysiert', color: '#0F6E56', bg: '#E1F5EE', icon: 'search' },
   analysis_complete: { label: 'Analyse fertig', color: '#185FA5', bg: '#E6F1FB', icon: 'check' },
   payment_pending: { label: 'Zahlung offen', color: '#854F0B', bg: '#FAEEDA', icon: 'card' },
-  signature_pending: { label: 'Unterschrift nötig', color: '#854F0B', bg: '#FAEEDA', icon: 'sign' },
-  submitted: { label: 'Bei Behörde eingereicht', color: '#0F6E56', bg: '#E1F5EE', icon: 'sent' },
+  antrag_wird_erstellt: { label: 'Antrag wird vorbereitet', color: '#0F6E56', bg: '#E1F5EE', icon: 'loading' },
+  antrag_bereit: { label: 'Bereit zum Einreichen', color: '#854F0B', bg: '#FAEEDA', icon: 'send' },
+  eingereicht_durch_kunde: { label: 'Eingereicht', color: '#0F6E56', bg: '#E1F5EE', icon: 'sent' },
+  bewilligt: { label: 'Bewilligt', color: '#085041', bg: '#E1F5EE', icon: 'done' },
+  abgelehnt: { label: 'Abgelehnt', color: '#791F1F', bg: '#FCEBEB', icon: 'x' },
+  cancelled: { label: 'Storniert', color: '#888780', bg: '#F1EFE8', icon: '-' },
+  // Legacy-Aliase (falls noch Bestandsdaten vorhanden)
+  signature_pending: { label: 'Bereit zum Einreichen', color: '#854F0B', bg: '#FAEEDA', icon: 'send' },
+  submitted: { label: 'Eingereicht', color: '#0F6E56', bg: '#E1F5EE', icon: 'sent' },
   approved: { label: 'Bewilligt', color: '#085041', bg: '#E1F5EE', icon: 'done' },
   rejected: { label: 'Abgelehnt', color: '#791F1F', bg: '#FCEBEB', icon: 'x' },
-  cancelled: { label: 'Storniert', color: '#888780', bg: '#F1EFE8', icon: '-' },
 };
+
+const ACTION_NEEDED_STATUSES = [
+  'documents_pending', 'payment_pending', 'antrag_bereit', 'signature_pending',
+];
+const PENDING_STATUSES = [
+  'cancelled', 'rejected', 'abgelehnt',
+];
+const APPROVED_STATUSES = ['approved', 'bewilligt'];
 
 function StatCard({ value, label, accent }) {
   return (
@@ -38,7 +52,7 @@ function StatCard({ value, label, accent }) {
 
 function ApplicationCard({ app, onDelete }) {
   const status = STATUS_CONFIG[app.status] || STATUS_CONFIG.draft;
-  const isActionNeeded = ['documents_pending', 'payment_pending', 'signature_pending'].includes(app.status);
+  const isActionNeeded = ACTION_NEEDED_STATUSES.includes(app.status);
 
   const handleDelete = (e) => {
     e.preventDefault();
@@ -58,7 +72,16 @@ function ApplicationCard({ app, onDelete }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
         <LeistungIcon id={app.leistung_id} size={44} />
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, color: 'var(--ap-dark)', fontSize: 'var(--text-base)' }}>{app.leistung_name}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 600, color: 'var(--ap-dark)', fontSize: 'var(--text-base)' }}>{app.leistung_name}</span>
+            {app.plus_package && (
+              <span style={{
+                fontSize: 10, fontWeight: 700, color: '#8B6914',
+                background: '#FFF8E7', padding: '1px 8px', borderRadius: 100,
+                textTransform: 'uppercase', letterSpacing: '0.06em',
+              }}>Plus</span>
+            )}
+          </div>
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginTop: 2 }}>
             Erstellt am {new Date(app.created_at).toLocaleDateString('de-DE')}
           </div>
@@ -71,7 +94,6 @@ function ApplicationCard({ app, onDelete }) {
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>pro Monat</div>
           </div>
         )}
-        {/* Delete Button */}
         <button onClick={handleDelete} title="Antrag löschen" style={{
           background: 'none', border: 'none', cursor: 'pointer', padding: 6,
           color: 'var(--color-text-muted)', fontSize: 16, borderRadius: 'var(--radius-sm)',
@@ -82,7 +104,6 @@ function ApplicationCard({ app, onDelete }) {
         >✕</button>
       </div>
 
-      {/* Status Bar */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         marginTop: 'var(--space-4)', paddingTop: 'var(--space-3)',
@@ -128,7 +149,6 @@ export default function DashboardPage() {
   }, [user]);
 
   const deleteApplication = async (appId) => {
-    // Dokumente, Status-Updates und Payments werden durch CASCADE gelöscht
     const { error } = await supabase.from('applications').delete().eq('id', appId);
     if (!error) {
       setApplications(prev => prev.filter(a => a.id !== appId));
@@ -152,16 +172,15 @@ export default function DashboardPage() {
   const firstName = user?.firstName || profile?.full_name?.split(' ')[0] || '';
   const greeting = new Date().getHours() < 12 ? 'Guten Morgen' : new Date().getHours() < 18 ? 'Guten Tag' : 'Guten Abend';
 
-  const activeApps = applications.filter(a => !['cancelled', 'rejected'].includes(a.status));
-  const approvedApps = applications.filter(a => a.status === 'approved');
-  const pendingApps = applications.filter(a => ['documents_pending', 'payment_pending', 'signature_pending'].includes(a.status));
+  const activeApps = applications.filter(a => !PENDING_STATUSES.includes(a.status));
+  const approvedApps = applications.filter(a => APPROVED_STATUSES.includes(a.status));
+  const pendingApps = applications.filter(a => ACTION_NEEDED_STATUSES.includes(a.status));
   const totalMonthly = approvedApps.reduce((sum, a) => sum + Number(a.estimated_monthly || 0), 0);
 
   return (
     <>
       <SEOHead title="Dashboard" noindex />
 
-      {/* Greeting */}
       <div style={{ marginBottom: 'var(--space-6)' }}>
         <h1 style={{ fontSize: 'var(--text-2xl)', marginBottom: 'var(--space-1)' }}>
           {greeting}{firstName ? `, ${firstName}` : ''}
@@ -174,7 +193,6 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Stats */}
       {applications.length > 0 && (
         <div style={{
           display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
@@ -187,7 +205,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Quick Actions */}
       <div style={{
         display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-8)', flexWrap: 'wrap',
       }}>
@@ -201,7 +218,6 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Applications List */}
       {loadingApps ? (
         <p style={{ color: 'var(--color-text-muted)' }}>Anträge werden geladen...</p>
       ) : applications.length === 0 ? (
@@ -222,7 +238,6 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          {/* Aktionen erforderlich */}
           {pendingApps.length > 0 && (
             <div style={{ marginBottom: 'var(--space-6)' }}>
               <h2 style={{ fontSize: 'var(--text-lg)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -235,7 +250,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Alle Anträge */}
           <div>
             <h2 style={{ fontSize: 'var(--text-lg)', marginBottom: 'var(--space-3)' }}>
               {pendingApps.length > 0 ? 'Weitere Anträge' : 'Meine Anträge'}
@@ -249,7 +263,6 @@ export default function DashboardPage() {
         </>
       )}
 
-      {/* Info Box */}
       <div style={{
         marginTop: 'var(--space-8)', padding: 'var(--space-5)',
         background: 'var(--color-bg-card)', borderRadius: 'var(--radius-lg)',
@@ -258,11 +271,10 @@ export default function DashboardPage() {
       }}>
         <AppIcon name="info" size={16} color="#8AA494" />
         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
-          <strong style={{ color: 'var(--ap-dark)' }}>So funktioniert's:</strong> Wählen Sie eine Leistung, laden Sie Ihre Dokumente hoch, und Ihr möglicher Anspruch wird automatisch geprüft. Bei Beauftragung zahlen Sie einmalig 49 €. Wird der Antrag abgelehnt, erhalten Sie Ihr Geld zurück.
+          <strong style={{ color: 'var(--ap-dark)' }}>So funktioniert's:</strong> Wählen Sie eine Leistung, laden Sie Ihre Dokumente hoch – Ihr möglicher Anspruch wird automatisch geprüft. Bei Beauftragung zahlen Sie einmalig 49 € (oder 78 € mit Plus-Paket). Wir bereiten den Antrag vor, Sie reichen ihn selbst ein. Bei Ablehnung erhalten Sie die Grundgebühr zurück.
         </div>
       </div>
 
-      {/* Umzugshilfe */}
       <div style={{ marginTop: 'var(--space-4)' }}>
         <a href="/umzugshilfe" style={{
           display: 'flex', alignItems: 'center', gap: 12, padding: 'var(--space-4)',
