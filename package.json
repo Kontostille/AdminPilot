@@ -14,7 +14,8 @@
     "@supabase/supabase-js": "^2.102.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-helmet-async": "^3.0.0"
+    "react-helmet-async": "^3.0.0",
+    "pdf-lib": "^1.17.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

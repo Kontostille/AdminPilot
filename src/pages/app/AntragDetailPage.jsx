@@ -231,7 +231,13 @@ function AntragBereitView({ app, onConfirmSubmission, onRequestShipment, shipmen
   const anleitung = ga.einreichungsanleitung || '';
   const nachweise = ga.nachweise_erforderlich || [];
   const anschreiben = ga.anschreiben || '';
-  const hasPdf = meta.template_vorhanden && meta.template_pfad;
+  const modus = ga.modus || 'anschreiben';
+  const isPdfFill = modus === 'pdf_fill';
+  const isNoFormNeeded = modus === 'kein_antrag';
+  const fehlendeHinweis = ga.fehlende_felder_hinweis || '';
+  const filledFieldsCount = ga.filled_fields_count || 0;
+
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const handleDownloadAnschreiben = () => {
     const blob = new Blob([anschreiben], { type: 'text/plain;charset=utf-8' });
@@ -241,6 +247,27 @@ function AntragBereitView({ app, onConfirmSubmission, onRequestShipment, shipmen
     a.download = `Antrag_${meta.leistung_id || 'AdminPilot'}_${app.id.substring(0, 8)}.txt`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadPdf = async () => {
+    setDownloadingPdf(true);
+    try {
+      const res = await fetch(`/api/download-antrag?application_id=${app.id}`);
+      const data = await res.json();
+      if (data.success && data.download_url) {
+        const a = document.createElement('a');
+        a.href = data.download_url;
+        a.download = data.filename || `Antrag_${meta.kennung}_${app.id.substring(0, 8)}.pdf`;
+        a.target = '_blank';
+        a.click();
+      } else {
+        alert('Download fehlgeschlagen: ' + (data.error || 'Unbekannter Fehler'));
+      }
+    } catch (e) {
+      alert('Verbindungsfehler. Bitte erneut versuchen.');
+    } finally {
+      setDownloadingPdf(false);
+    }
   };
 
   return (
@@ -317,13 +344,59 @@ function AntragBereitView({ app, onConfirmSubmission, onRequestShipment, shipmen
       {/* Download-Bereich */}
       <div style={{ background: '#FFF', borderRadius: 12, padding: 20, marginBottom: 16, border: '1px solid #E2E8E5' }}>
         <h3 style={{ fontSize: 15, marginBottom: 12 }}>Antrag herunterladen</h3>
-        {hasPdf && (
+
+        {isPdfFill && (
+          <>
+            <p style={{ fontSize: 13, color: '#5A6B60', margin: '0 0 10px', lineHeight: 1.5 }}>
+              Wir haben das offizielle Formular <b>{meta.kennung}</b> der {meta.behoerde || behoerde.name} mit Ihren Daten ausgefüllt.
+              <b> {filledFieldsCount} Felder</b> wurden automatisch aus Ihren Dokumenten befüllt.
+              Bitte prüfen Sie das PDF sorgfältig, bevor Sie es einreichen.
+            </p>
+            {fehlendeHinweis && (
+              <div style={{
+                background: '#FFF8E7', border: '1px solid #E2C044', borderRadius: 8,
+                padding: 12, margin: '12px 0', fontSize: 13, color: '#8B6914', lineHeight: 1.5,
+              }}>
+                <b>Noch handschriftlich zu ergänzen:</b><br/>
+                {fehlendeHinweis}
+              </div>
+            )}
+          </>
+        )}
+
+        {!isPdfFill && !isNoFormNeeded && (
           <p style={{ fontSize: 13, color: '#5A6B60', margin: '0 0 10px', lineHeight: 1.5 }}>
-            Offizielles PDF-Formular {meta.kennung}, von uns mit Ihren Daten ausgefüllt. Laden Sie das Original-Formular von der Behörde herunter und übertragen Sie die Daten aus unserer Vorlage (eine direkte Befüllung des PDFs wird in Kürze verfügbar sein).
+            Wir haben ein formelles Anschreiben auf Basis Ihrer Dokumente vorbereitet. Sie können es ausdrucken, unterschreiben und zusammen mit den Nachweisen einreichen.
           </p>
         )}
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          {anschreiben && (
+
+        {isNoFormNeeded && (
+          <div style={{
+            background: '#E1F5EE', border: '1px solid #A8D8C5', borderRadius: 8,
+            padding: 16, fontSize: 13, color: '#0F6E56', lineHeight: 1.6,
+          }}>
+            <b>Hinweis:</b> {ga.hinweis || 'Für diese Leistung ist kein separater Antrag nötig.'}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
+          {isPdfFill && (
+            <button
+              onClick={handleDownloadPdf}
+              disabled={downloadingPdf}
+              style={{
+                padding: '12px 22px',
+                background: downloadingPdf ? '#C8DAD0' : '#E2C044',
+                color: downloadingPdf ? '#8AA494' : '#1A3C2B',
+                fontWeight: 600, fontSize: 14, borderRadius: 8, border: 'none',
+                cursor: downloadingPdf ? 'wait' : 'pointer', fontFamily: 'var(--font-body)',
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}
+            >
+              {downloadingPdf ? 'Wird vorbereitet...' : `📄 Antrag als PDF herunterladen`}
+            </button>
+          )}
+          {!isPdfFill && anschreiben && (
             <button
               onClick={handleDownloadAnschreiben}
               style={{
